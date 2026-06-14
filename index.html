@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seiko Mods Kenya — Crafted Time. Redefined Luxury.</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    /* ─────────────────── RESET & TOKENS ─────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:           #ffffff;
+      --bg-soft:      #fafaf9;
+      --s100:         #f4f4f2;
+      --s200:         #e6e6e4;
+      --s300:         #ccccca;
+      --s400:         #aaaaaa;
+      --s500:         #7a7a78;
+      --ink:          #0c0c0c;
+      --ink-soft:     #1e1e1e;
+      --ink-mid:      #4a4a48;
+      --ink-mute:     #888886;
+      --glass:        rgba(255,255,255,0.76);
+      --glass-border: rgba(200,200,196,0.28);
+      --sh-xs:        0 2px 16px rgba(0,0,0,0.05);
+      --sh-sm:        0 4px 32px rgba(0,0,0,0.07);
+      --sh-md:        0 12px 56px rgba(0,0,0,0.10);
+      --sh-lg:        0 28px 100px rgba(0,0,0,0.14);
+      --ease:         cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      --t:            0.4s var(--ease);
+      --display:      Arial, Helvetica, sans-serif;
+      --body:         Arial, Helvetica, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--body);
+      background: var(--bg);
+      color: var(--ink);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ─────────────────── MOBILE OVERLAY MENU ─────────────────── */
+    .m-menu {
+      position: fixed; inset: 0; z-index: 1100;
+      background: rgba(255,255,255,0.97);
+      backdrop-filter: blur(24px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 40px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .m-menu.open { opacity: 1; pointer-events: all; }
+    .m-menu a {
+      font-family: var(--display);
+      font-size: 2.8rem; font-weight: 300;
+      color: var(--ink); text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.3s ease;
+    }
+    .m-menu a:hover { color: var(--s400); }
+    .m-close {
+      position: absolute; top: 28px; right: 28px;
+      background: none; border: none; cursor: pointer;
+      width: 44px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .m-close svg { width: 20px; height: 20px; }
+
+    /* ─────────────────── NAVBAR ─────────────────── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      height: 72px; padding: 0 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--glass);
+      backdrop-filter: blur(22px) saturate(180%);
+      -webkit-backdrop-filter: blur(22px) saturate(180%);
+      border-bottom: 1px solid var(--glass-border);
+      transition: height var(--t), box-shadow var(--t);
+    }
+    .nav.scrolled { height: 60px; box-shadow: var(--sh-xs); }
+
+    .nav-logo {
+      font-family: var(--display);
+      font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink); text-decoration: none;
+    }
+
+    .nav-links { display: flex; gap: 44px; list-style: none; }
+    .nav-links a {
+      font-size: 0.7rem; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-mid); text-decoration: none;
+      position: relative; transition: color 0.3s;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute;
+      bottom: -4px; left: 0; width: 0; height: 1px;
+      background: var(--ink); transition: width 0.35s ease;
+    }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-links a:hover::after { width: 100%; }
+
+    .nav-burger {
+      display: none; flex-direction: column;
+      gap: 5px; cursor: pointer; padding: 6px;
+      background: none; border: none;
+    }
+    .nav-burger span {
+      display: block; width: 24px; height: 1.5px;
+      background: var(--ink);
+      transition: var(--t);
+    }
+
+    /* ─────────────────── HERO ─────────────────── */
+    .hero {
+      width: 100%;
+      height: calc(100vh - 72px);
+      overflow: hidden;
+      line-height: 0;
+      margin-top: 72px;
+    }
+    .hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
+      display: block;
+    }
+    .hero-img.desktop { display: block; }
+    .hero-img.mobile  { display: none; }
+    @media (max-width: 768px) {
+      .hero-img.desktop { display: none; }
+      .hero-img.mobile  { display: block; }
+    }
+
+    /* ─────────────────── SHARED SECTION STYLES ─────────────────── */
+    .section { padding: 140px 52px; }
+    .section-inner { max-width: 1300px; margin: 0 auto; }
+
+    .label {
+      font-size: 0.62rem; font-weight: 600;
+      letter-spacing: 0.38em; text-transform: uppercase;
+      color: var(--s400); margin-bottom: 18px;
+    }
+
+    .heading {
+      font-family: var(--display);
+      font-size: clamp(2.2rem, 4.5vw, 4rem);
+      font-weight: 600; line-height: 1.1;
+      color: var(--ink); letter-spacing: -0.02em;
+    }
+    .heading em { font-style: normal; }
+
+    .rule { width: 56px; height: 1px; background: var(--s300); margin: 36px 0; }
+
+    /* Scroll-reveal */
+    .reveal {
+      opacity: 0; transform: translateY(44px);
+      transition: opacity 0.9s ease, transform 0.9s ease;
+    }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+    .d1 { transition-delay: 0.08s; }
+    .d2 { transition-delay: 0.18s; }
+    .d3 { transition-delay: 0.28s; }
+
+    /* ─────────────────── COLLECTION ─────────────────── */
+    .collection { background: var(--bg-soft); }
+
+    .coll-header {
+      display: flex; align-items: flex-end;
+      justify-content: space-between; margin-bottom: 80px;
+    }
+
+    .coll-meta {
+      text-align: right;
+      font-size: 0.78rem; font-weight: 300;
+      color: var(--ink-mute); letter-spacing: 0.06em; line-height: 1.6;
+    }
+    .coll-meta strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 2.4rem; font-weight: 300;
+      color: var(--ink); letter-spacing: 0.02em; line-height: 1;
+    }
+
+    /* ── Product showcase card ── */
+    .showcase {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 2px; background: var(--s300);
+      border-radius: 28px; overflow: hidden;
+      box-shadow: var(--sh-lg);
+    }
+
+    .prod-visual {
+      background: #f5f5f3;
+      min-height: 680px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden; cursor: pointer;
+    }
+    /* "Click to view details" hint */
+    .prod-visual::after {
+      content: 'Click to view details';
+      position: absolute; bottom: 28px;
+      font-size: 0.6rem; font-weight: 500;
+      letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(0,0,0,0.22);
+    }
+
+    .prod-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.7s var(--ease);
+    }
+    .prod-visual:hover .prod-img { transform: scale(1.04); }
+
+    .prod-info {
+      background: var(--bg);
+      padding: 72px 60px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+
+    .prod-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 18px;
+      background: var(--s100);
+      border: 1px solid var(--s200);
+      border-radius: 100px;
+      font-size: 0.6rem; font-weight: 600;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--s500); margin-bottom: 32px;
+      width: fit-content;
+    }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: #38a038; }
+
+    .prod-name {
+      font-family: var(--display);
+      font-size: clamp(1.8rem, 3vw, 2.8rem);
+      font-weight: 600; line-height: 1.1;
+      color: var(--ink); margin-bottom: 8px;
+    }
+    .prod-name em { font-style: normal; }
+
+    .prod-ref {
+      font-size: 0.7rem; font-weight: 400;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--s400); margin-bottom: 32px;
+    }
+
+    .prod-desc {
+      font-size: 0.88rem; font-weight: 300;
+      line-height: 1.95; color: var(--ink-mid);
+      margin-bottom: 44px; max-width: 360px;
+    }
+
+    .price-row {
+      display: flex; align-items: center; gap: 22px;
+      margin-bottom: 44px; padding-bottom: 44px;
+      border-bottom: 1px solid var(--s200);
+    }
+    .price {
+      font-family: var(--display);
+      font-size: 2.6rem; font-weight: 400;
+      color: var(--ink); letter-spacing: 0.02em;
+    }
+    .price-note {
+      font-size: 0.7rem; font-weight: 300;
+      color: var(--ink-mute); letter-spacing: 0.07em; line-height: 1.7;
+    }
+
+    .prod-actions { display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── Shared button styles ── */
+    .btn-dark, .btn-outline, .btn-wa, .btn-wa-lg {
+      display: inline-flex; align-items: center;
+      justify-content: center; gap: 10px;
+      border-radius: 100px; cursor: pointer;
+      font-family: var(--body);
+      font-size: 0.7rem; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      text-decoration: none; transition: all 0.35s ease;
+    }
+
+    .btn-dark {
+      padding: 18px 36px;
+      background: var(--ink); border: 1px solid var(--ink);
+      color: #fff;
+    }
+    .btn-dark:hover {
+      background: #2a2a2a;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+    }
+
+    .btn-outline {
+      padding: 18px 36px;
+      background: transparent; border: 1px solid var(--s300);
+      color: var(--ink);
+    }
+    .btn-outline:hover {
+      border-color: var(--ink); background: var(--s100);
+      transform: translateY(-2px);
+    }
+
+    .btn-wa {
+      padding: 18px 36px;
+      background: transparent; border: 1px solid var(--s300);
+      color: var(--ink);
+    }
+    .btn-wa:hover {
+      border-color: #25D366; color: #25D366;
+      background: rgba(37,211,102,0.05);
+      transform: translateY(-2px);
+    }
+    .btn-wa svg, .btn-wa-lg svg { fill: currentColor; }
+
+    .btn-wa-lg {
+      padding: 22px 52px;
+      background: #25D366; border: none;
+      color: #fff;
+      font-size: 0.72rem; font-weight: 600;
+      box-shadow: 0 8px 32px rgba(37,211,102,0.3);
+    }
+    .btn-wa-lg:hover {
+      background: #1fb85a;
+      transform: translateY(-3px);
+      box-shadow: 0 18px 52px rgba(37,211,102,0.38);
+    }
+
+    /* ─────────────────── PRODUCT DETAIL ─────────────────── */
+    .detail-section {
+      background: var(--bg);
+      overflow: hidden;
+      max-height: 0; opacity: 0;
+      transition: max-height 1s var(--ease), opacity 0.6s ease;
+    }
+    .detail-section.open {
+      max-height: 3000px; opacity: 1;
+    }
+
+    .detail-inner {
+      padding: 100px 52px 120px;
+      max-width: 1300px; margin: 0 auto;
+    }
+
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 100px; align-items: start;
+    }
+
+    /* Gallery */
+    .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .g-img {
+      border-radius: 18px; overflow: hidden;
+      background: linear-gradient(145deg, #151515, #262626);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: transform 0.45s ease, box-shadow 0.45s ease;
+    }
+    .g-img:hover { transform: scale(1.025); box-shadow: var(--sh-md); }
+    .g-img:first-child { grid-column: 1 / -1; height: 360px; }
+    .g-img:not(:first-child) { height: 195px; }
+    .g-img svg { width: 55%; max-width: 190px; filter: drop-shadow(0 16px 50px rgba(0,0,0,0.5)); }
+
+    /* Specs */
+    .specs-head {
+      font-size: 0.62rem; font-weight: 600;
+      letter-spacing: 0.32em; text-transform: uppercase;
+      color: var(--s400); margin-bottom: 24px;
+    }
+    .spec {
+      display: grid; grid-template-columns: 1fr 1.6fr;
+      gap: 14px; padding: 16px 0;
+      border-bottom: 1px solid var(--s100);
+    }
+    .spec-k {
+      font-size: 0.68rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--s400);
+    }
+    .spec-v {
+      font-size: 0.8rem; font-weight: 300;
+      color: var(--ink); letter-spacing: 0.03em;
+    }
+
+    /* ─────────────────── BRAND STRIP ─────────────────── */
+    .strip { background: var(--ink); padding: 64px 52px; }
+    .strip-inner {
+      max-width: 1300px; margin: 0 auto;
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 40px;
+    }
+    .strip-text {
+      font-family: var(--display);
+      font-size: clamp(1.8rem, 3.4vw, 3rem);
+      font-weight: 300; color: rgba(255,255,255,0.92);
+      letter-spacing: 0.01em;
+    }
+    .strip-text em { font-style: italic; color: rgba(210,205,190,0.8); }
+    .strip-right {
+      font-size: 0.68rem; font-weight: 300;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+      text-align: right; line-height: 2.2;
+    }
+
+    /* ─────────────────── ABOUT ─────────────────── */
+    .about { background: var(--bg); }
+    .about-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 100px; align-items: center;
+    }
+
+    .about-visual { position: relative; height: 600px; }
+    .about-main {
+      position: absolute; inset: 0;
+      border-radius: 28px;
+      overflow: hidden;
+    }
+    .about-main img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+
+    .float-card {
+      position: absolute; bottom: -24px; right: -24px;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 22px; padding: 28px 36px;
+      box-shadow: var(--sh-md);
+    }
+    .float-num {
+      font-family: var(--display);
+      font-size: 3.2rem; font-weight: 300;
+      color: var(--ink); line-height: 1;
+    }
+    .float-label {
+      font-size: 0.66rem; font-weight: 500;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-mute); margin-top: 8px; line-height: 1.6;
+    }
+
+    .about-body {
+      font-size: 0.92rem; font-weight: 300;
+      line-height: 2.05; color: var(--ink-mid);
+      margin-bottom: 48px;
+    }
+
+    .values { display: flex; flex-direction: column; gap: 18px; }
+    .val {
+      display: flex; align-items: flex-start; gap: 22px;
+      padding: 20px; border-radius: 14px;
+      border: 1px solid var(--s100);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .val:hover { border-color: var(--s300); box-shadow: var(--sh-xs); }
+    .val-n {
+      font-family: var(--display);
+      font-size: 1.4rem; font-weight: 300;
+      color: var(--s300); flex-shrink: 0; width: 30px;
+    }
+    .val-t {
+      font-size: 0.82rem; font-weight: 400;
+      color: var(--ink-mid); letter-spacing: 0.02em;
+      line-height: 1.7; padding-top: 2px;
+    }
+
+    /* ─────────────────── CONTACT ─────────────────── */
+    .contact { background: var(--s100); }
+    .contact-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 100px; align-items: start;
+    }
+
+    .contact-items { display: flex; flex-direction: column; gap: 16px; margin-top: 40px; }
+    .c-item {
+      display: flex; align-items: center; gap: 18px;
+      padding: 22px 26px;
+      background: var(--bg); border-radius: 18px;
+      box-shadow: var(--sh-xs);
+      text-decoration: none; color: inherit;
+      transition: all 0.35s ease;
+    }
+    .c-item:hover { transform: translateY(-4px); box-shadow: var(--sh-md); }
+    .c-icon {
+      width: 46px; height: 46px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .c-icon.wa   { background: rgba(37,211,102,0.1); }
+    .c-icon.ig   { background: rgba(228,64,95,0.1); }
+    .c-icon.em   { background: rgba(100,120,210,0.1); }
+    .c-meta { flex: 1; }
+    .c-lbl {
+      font-size: 0.6rem; font-weight: 600;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--s400); margin-bottom: 4px;
+    }
+    .c-val { font-size: 0.88rem; font-weight: 400; color: var(--ink); }
+    .c-arrow { color: var(--s300); flex-shrink: 0; }
+
+    .contact-right { padding-top: 40px; }
+    .contact-body {
+      font-size: 0.9rem; font-weight: 300;
+      line-height: 2.0; color: var(--ink-mid);
+      margin-bottom: 44px; max-width: 420px;
+    }
+
+    /* ─────────────────── FOOTER ─────────────────── */
+    .footer { background: var(--ink); padding: 60px 52px; }
+    .footer-inner {
+      max-width: 1300px; margin: 0 auto;
+      display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 24px;
+    }
+    .footer-logo {
+      font-family: var(--display);
+      font-size: 1.05rem; font-weight: 400;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(255,255,255,0.82);
+    }
+    .footer-copy {
+      font-size: 0.65rem; font-weight: 300;
+      letter-spacing: 0.1em; color: rgba(255,255,255,0.28);
+    }
+    .footer-links { display: flex; gap: 32px; }
+    .footer-links a {
+      font-size: 0.65rem; font-weight: 400;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(255,255,255,0.38); text-decoration: none;
+      transition: color 0.3s;
+    }
+    .footer-links a:hover { color: rgba(255,255,255,0.82); }
+
+    /* ─────────────────── KEYFRAMES ─────────────────── */
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 1; }
+    }
+
+    /* ─────────────────── RESPONSIVE ─────────────────── */
+    @media (max-width: 960px) {
+      .section { padding: 100px 24px; }
+      .nav { padding: 0 24px; }
+      .nav-links { display: none; }
+      .nav-burger { display: flex; }
+      .strip { padding: 56px 24px; }
+
+      .coll-header { flex-direction: column; align-items: flex-start; gap: 20px; }
+      .coll-meta { text-align: left; }
+      .showcase { grid-template-columns: 1fr; }
+      .prod-visual { min-height: 460px; }
+      .prod-info { padding: 48px 28px; }
+
+      .detail-inner { padding: 72px 24px 90px; }
+      .detail-grid  { grid-template-columns: 1fr; gap: 56px; }
+      .gallery      { grid-template-columns: 1fr; }
+      .g-img:first-child { grid-column: auto; }
+
+      .strip-inner  { flex-direction: column; text-align: center; }
+      .strip-right  { text-align: center; }
+
+      .about-grid   { grid-template-columns: 1fr; gap: 56px; }
+      .about-visual { height: 380px; }
+      .float-card   { right: 0; bottom: -20px; }
+
+      .contact-grid { grid-template-columns: 1fr; gap: 60px; }
+      .footer-inner { justify-content: center; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+
+    @media (max-width: 560px) {
+      .hero-title { font-size: 3.2rem; }
+      .price-row  { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .strip      { padding: 48px 20px; }
+    }
+
+    /* ─────────────────── WATCHES GRID ─────────────────── */
+    .watches-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 32px;
+    }
+    .watch-card {
+      background: var(--bg);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: var(--sh-sm);
+      transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
+    }
+    .watch-card:hover {
+      transform: translateY(-8px);
+      box-shadow: var(--sh-lg);
+    }
+    .watch-card-img-wrap {
+      aspect-ratio: 3 / 4;
+      overflow: hidden;
+      background: var(--s100);
+    }
+    .watch-card-img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+      transition: transform 0.7s var(--ease);
+    }
+    .watch-card:hover .watch-card-img { transform: scale(1.05); }
+    .watch-card-body {
+      padding: 24px 28px 28px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .watch-card-name {
+      font-family: var(--display);
+      font-size: 1rem; font-weight: 600;
+      color: var(--ink); line-height: 1.35;
+      letter-spacing: -0.01em;
+    }
+    .watch-card-wa {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 20px;
+      background: transparent; border: 1px solid var(--s300);
+      border-radius: 100px;
+      font-family: var(--body);
+      font-size: 0.65rem; font-weight: 500;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink); text-decoration: none;
+      transition: all 0.3s ease; width: fit-content;
+    }
+    .watch-card-wa:hover { border-color: #25D366; color: #25D366; background: rgba(37,211,102,0.05); }
+    .watch-card-wa svg { fill: currentColor; }
+    .watches-empty {
+      text-align: center; padding: 80px 0;
+      color: var(--ink-mute); font-size: 0.9rem;
+      font-weight: 300; letter-spacing: 0.05em;
+    }
+    @media (max-width: 960px) {
+      .watches-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─────────────────── ADMIN LOGIN MODAL ─────────────────── */
+    .admin-overlay {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .admin-overlay.open { opacity: 1; pointer-events: all; }
+    .admin-card {
+      background: var(--bg); border-radius: 28px;
+      padding: 48px; width: 100%; max-width: 440px;
+      box-shadow: var(--sh-lg);
+    }
+    .admin-title {
+      font-family: var(--display);
+      font-size: 1.6rem; font-weight: 600;
+      color: var(--ink); margin-bottom: 8px; letter-spacing: -0.02em;
+    }
+    .admin-sub {
+      font-size: 0.8rem; font-weight: 300;
+      color: var(--ink-mute); margin-bottom: 36px;
+    }
+    .admin-input {
+      width: 100%; padding: 16px 20px;
+      border: 1px solid var(--s200); border-radius: 14px;
+      font-family: var(--body); font-size: 0.9rem;
+      color: var(--ink); background: var(--bg);
+      outline: none; transition: border-color 0.3s; margin-bottom: 16px;
+    }
+    .admin-input:focus { border-color: var(--ink); }
+    .admin-error {
+      font-size: 0.78rem; color: #c0392b;
+      margin-bottom: 16px; display: none;
+    }
+    .admin-btn {
+      width: 100%; padding: 18px;
+      background: var(--ink); border: none; border-radius: 14px;
+      font-family: var(--body); font-size: 0.75rem; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: #fff; cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+    .admin-btn:hover { background: #2a2a2a; transform: translateY(-1px); }
+    .admin-btn:disabled { background: var(--s300); cursor: not-allowed; transform: none; }
+    .admin-btn-sm {
+      padding: 10px 20px; width: auto; border-radius: 10px;
+      font-size: 0.68rem;
+    }
+    .admin-btn-outline {
+      width: 100%; padding: 14px;
+      background: transparent; border: 1px solid var(--s200); border-radius: 14px;
+      font-family: var(--body); font-size: 0.7rem; font-weight: 500;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink-mute); cursor: pointer;
+      transition: all 0.3s; margin-top: 12px;
+    }
+    .admin-btn-outline:hover { border-color: var(--ink); color: var(--ink); }
+
+    /* ─────────────────── ADMIN DASHBOARD ─────────────────── */
+    .dash-overlay {
+      position: fixed; inset: 0; z-index: 2000;
+      background: var(--bg-soft); overflow-y: auto; display: none;
+    }
+    .dash-overlay.open { display: block; }
+    .dash-header {
+      background: var(--bg); border-bottom: 1px solid var(--s200);
+      padding: 20px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .dash-logo {
+      font-family: var(--display); font-size: 0.85rem; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink);
+    }
+    .dash-body { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
+    .dash-section-title {
+      font-family: var(--display); font-size: 1.1rem; font-weight: 600;
+      color: var(--ink); margin-bottom: 24px; letter-spacing: -0.01em;
+    }
+    .dash-upload-card {
+      background: var(--bg); border-radius: 20px; padding: 36px;
+      box-shadow: var(--sh-xs); margin-bottom: 48px;
+    }
+    .dash-field-label {
+      font-size: 0.62rem; font-weight: 600;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--s400); margin-bottom: 8px; display: block;
+    }
+    .dash-status {
+      font-size: 0.82rem; font-weight: 300;
+      color: var(--ink-mute); margin-top: 16px; min-height: 20px;
+    }
+    .dash-watch-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 20px;
+    }
+    .dash-watch-item {
+      background: var(--bg); border-radius: 16px;
+      overflow: hidden; box-shadow: var(--sh-xs);
+    }
+    .dash-watch-item img {
+      width: 100%; aspect-ratio: 1;
+      object-fit: cover; display: block;
+    }
+    .dash-watch-item-body { padding: 12px 14px 14px; }
+    .dash-watch-item-name {
+      font-size: 0.78rem; font-weight: 500;
+      color: var(--ink); line-height: 1.4; margin-bottom: 10px;
+    }
+    .dash-delete-btn {
+      font-size: 0.62rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #c0392b; background: none;
+      border: 1px solid rgba(192,57,43,0.3);
+      border-radius: 8px; padding: 6px 12px;
+      cursor: pointer; transition: all 0.3s;
+    }
+    .dash-delete-btn:hover { background: rgba(192,57,43,0.08); border-color: #c0392b; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ MOBILE MENU ══════════════════ -->
+<div class="m-menu" id="mMenu">
+  <button class="m-close" onclick="closeMenu()" aria-label="Close menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <a href="#home"       onclick="closeMenu()">Home</a>
+  <a href="#collection" onclick="closeMenu()">Collection</a>
+  <a href="#about"      onclick="closeMenu()">About</a>
+  <a href="#contact"    onclick="closeMenu()">Contact</a>
+</div>
+
+<!-- ══════════════════ NAVBAR ══════════════════ -->
+<nav class="nav" id="nav">
+  <a href="#home" class="nav-logo">Seiko Mods Kenya</a>
+  <ul class="nav-links">
+    <li><a href="#home">Home</a></li>
+    <li><a href="#collection">Collection</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+  <button class="nav-burger" id="burger" onclick="openMenu()" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- ══════════════════ HERO ══════════════════ -->
+<section class="hero" id="home">
+  <img class="hero-img desktop" src="desktopbanner.png" alt="Seiko Mods Kenya" />
+  <img class="hero-img mobile"  src="mobilebanner.png"  alt="Seiko Mods Kenya" />
+</section>
+
+<!-- ══════════════════ COLLECTION ══════════════════ -->
+<section class="section collection" id="collection">
+  <div class="section-inner">
+
+    <div class="coll-header">
+      <div class="reveal">
+        <p class="label">The Collection</p>
+        <h2 class="heading">Handcrafted<br><em>timepieces.</em></h2>
+      </div>
+      <div class="coll-meta reveal d2">
+        <span>Available Now</span>
+        <strong>2025</strong>
+      </div>
+    </div>
+
+    <div class="watches-grid" id="watchesGrid"></div>
+    <div class="watches-empty" id="watchesEmpty" style="display:none">No watches in the collection yet.</div>
+
+  </div>
+</section>
+
+<!-- ══════════════════ ABOUT ══════════════════ -->
+<section class="section about" id="about">
+  <div class="section-inner">
+    <div class="about-grid">
+
+      <!-- Visual -->
+      <div class="about-visual reveal">
+        <div class="about-main">
+          <img src="watch-angle.jpeg" alt="Seiko Datejust Mod — Handcrafted" />
+        </div>
+        <div class="float-card">
+          <div class="float-num">100%</div>
+          <div class="float-label">Handcrafted<br>to order</div>
+        </div>
+      </div>
+
+      <!-- Copy -->
+      <div class="reveal d2">
+        <p class="label">Our Story</p>
+        <h2 class="heading">Precision meets<br><em>bespoke design.</em></h2>
+        <div class="rule"></div>
+        <p class="about-body">
+          Seiko Mods Kenya crafts refined timepieces that blend Japanese precision with bespoke luxury design — built for those who value elegance, detail, and presence.
+        </p>
+        <div class="values">
+          <div class="val">
+            <span class="val-n">01</span>
+            <span class="val-t">Japanese automatic movements, hand-regulated for precision</span>
+          </div>
+          <div class="val">
+            <span class="val-n">02</span>
+            <span class="val-t">Every piece built individually, direct from craftsman to owner</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ CONTACT ══════════════════ -->
+<section class="section contact" id="contact">
+  <div class="section-inner">
+    <div class="contact-grid">
+
+      <!-- Left -->
+      <div class="reveal">
+        <p class="label">Get in Touch</p>
+        <h2 class="heading">Start your<br><em>bespoke journey.</em></h2>
+        <div class="contact-items">
+
+          <a href="https://wa.me/254113236161" class="c-item" target="_blank" rel="noopener">
+            <div class="c-icon wa">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#25D366">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
+            </div>
+            <div class="c-meta">
+              <p class="c-lbl">WhatsApp</p>
+              <p class="c-val">0113 236 161</p>
+            </div>
+            <svg class="c-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M2 7h10M7 2l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+
+          <a href="https://instagram.com/seikomods.ke" class="c-item" target="_blank" rel="noopener">
+            <div class="c-icon ig">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e4405f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </div>
+            <div class="c-meta">
+              <p class="c-lbl">Instagram</p>
+              <p class="c-val">@seikomods.ke</p>
+            </div>
+            <svg class="c-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M2 7h10M7 2l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+
+
+        </div>
+      </div>
+
+      <!-- Right -->
+      <div class="contact-right reveal d2">
+        <p class="label">Place an Order</p>
+        <h3 style="font-family:var(--display);font-size:clamp(1.8rem,2.8vw,2.8rem);font-weight:300;line-height:1.1;color:var(--ink);margin-bottom:20px;">
+          Ready to own a<br><em>Royal Edition?</em>
+        </h3>
+        <p class="contact-body">
+          Each Seiko Mod Royal Edition is assembled to your personal specification. Message us on WhatsApp to discuss your dial preference, strap choice, and any custom finishing touches.
+          <br><br>
+          We typically respond within a few hours.
+        </p>
+        <a href="https://wa.me/254113236161?text=Hello%2C%20I'd%20like%20to%20order%20a%20Seiko%20Mod%20Royal%20Edition.%20Please%20share%20more%20details."
+           class="btn-wa-lg" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+          Order on WhatsApp
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ ADMIN LOGIN ══════════════════ -->
+<div class="admin-overlay" id="adminLogin">
+  <div class="admin-card">
+    <p class="label" style="margin-bottom:8px">Admin Access</p>
+    <h2 class="admin-title">Welcome back.</h2>
+    <p class="admin-sub">Enter your password to access the admin dashboard.</p>
+    <input class="admin-input" type="password" id="adminPwd" placeholder="Password"
+           onkeydown="if(event.key==='Enter')adminLogin()" />
+    <p class="admin-error" id="loginError">Incorrect password. Try again.</p>
+    <button class="admin-btn" onclick="adminLogin()">Login</button>
+    <button class="admin-btn-outline" onclick="closeAdminLogin()">Cancel</button>
+  </div>
+</div>
+
+<!-- ══════════════════ ADMIN DASHBOARD ══════════════════ -->
+<div class="dash-overlay" id="adminDash">
+  <div class="dash-header">
+    <span class="dash-logo">Seiko Mods Kenya — Admin</span>
+    <button class="admin-btn admin-btn-sm" onclick="adminLogout()">Logout</button>
+  </div>
+  <div class="dash-body">
+
+    <div class="dash-upload-card">
+      <p class="dash-section-title">Add New Watch</p>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div>
+          <label class="dash-field-label" for="newWatchName">Watch Name</label>
+          <input class="admin-input" type="text" id="newWatchName"
+                 placeholder="e.g. Seiko Datejust Mod — Green Dial" style="margin-bottom:0" />
+        </div>
+        <div>
+          <label class="dash-field-label" for="newWatchImg">Photo</label>
+          <input class="admin-input" type="file" id="newWatchImg" accept="image/*" style="margin-bottom:0" />
+        </div>
+        <button class="admin-btn" id="uploadBtn" onclick="uploadWatch()">Upload Watch</button>
+        <p class="dash-status" id="uploadStatus"></p>
+      </div>
+    </div>
+
+    <p class="dash-section-title">Your Watches</p>
+    <div class="dash-watch-list" id="adminWatchList"></div>
+
+  </div>
+</div>
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-logo">Seiko Mods Kenya</div>
+    <div class="footer-copy">© 2025 Seiko Mods Kenya. All rights reserved.</div>
+    <div class="footer-links">
+      <a href="#collection">Collection</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════ JAVASCRIPT ══════════════════ -->
+<script>
+  /* ── Supabase ── */
+  const { createClient } = supabase;
+  const db = createClient(
+    'https://baxefjtopjuuuxrzvgbx.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJheGVmanRvcGp1dXV4cnp2Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjY5MTQsImV4cCI6MjA5NDk0MjkxNH0.6TvS1KopPXlGMkLQPqv8bAkVjE6ZItM1vjBL55vohj4'
+  );
+
+  /* ── Navbar scroll ── */
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  /* ── Mobile menu ── */
+  function openMenu() {
+    document.getElementById('mMenu').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMenu() {
+    document.getElementById('mMenu').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  /* ── Scroll reveal ── */
+  const reveals = document.querySelectorAll('.reveal');
+  const ro = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => ro.observe(el));
+
+  /* ── Triple-click logo → admin login ── */
+  let logoClicks = 0, logoTimer;
+  document.querySelector('.nav-logo').addEventListener('click', (e) => {
+    e.preventDefault();
+    logoClicks++;
+    clearTimeout(logoTimer);
+    logoTimer = setTimeout(() => { logoClicks = 0; }, 700);
+    if (logoClicks >= 3) {
+      logoClicks = 0;
+      document.getElementById('adminLogin').classList.add('open');
+      setTimeout(() => document.getElementById('adminPwd').focus(), 120);
+    }
+  });
+
+  function closeAdminLogin() {
+    document.getElementById('adminLogin').classList.remove('open');
+    document.getElementById('adminPwd').value = '';
+    document.getElementById('loginError').style.display = 'none';
+  }
+
+  function adminLogin() {
+    if (document.getElementById('adminPwd').value === 'rianshah') {
+      closeAdminLogin();
+      openAdminDash();
+    } else {
+      document.getElementById('loginError').style.display = 'block';
+      document.getElementById('adminPwd').value = '';
+      document.getElementById('adminPwd').focus();
+    }
+  }
+
+  /* ── Admin dashboard ── */
+  function openAdminDash() {
+    document.getElementById('adminDash').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    loadAdminWatches();
+  }
+
+  function adminLogout() {
+    document.getElementById('adminDash').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function loadAdminWatches() {
+    const list = document.getElementById('adminWatchList');
+    list.innerHTML = '<p style="color:var(--ink-mute);font-size:0.85rem;font-weight:300">Loading...</p>';
+    const { data } = await db.from('watches').select('*').order('created_at', { ascending: false });
+    if (!data || !data.length) {
+      list.innerHTML = '<p style="color:var(--ink-mute);font-size:0.85rem;font-weight:300">No watches uploaded yet.</p>';
+      return;
+    }
+    list.innerHTML = data.map(w => `
+      <div class="dash-watch-item">
+        <img src="${w.image_url}" alt="${w.name}" />
+        <div class="dash-watch-item-body">
+          <p class="dash-watch-item-name">${w.name}</p>
+          <button class="dash-delete-btn" onclick="deleteWatch('${w.id}','${w.image_url}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function uploadWatch() {
+    const name = document.getElementById('newWatchName').value.trim();
+    const file = document.getElementById('newWatchImg').files[0];
+    const status = document.getElementById('uploadStatus');
+    const btn = document.getElementById('uploadBtn');
+    if (!name || !file) { status.textContent = 'Please fill in both fields.'; return; }
+
+    btn.disabled = true;
+    status.textContent = 'Uploading…';
+
+    const ext = file.name.split('.').pop();
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error: upErr } = await db.storage.from('watch-images').upload(path, file);
+    if (upErr) { status.textContent = 'Upload failed: ' + upErr.message; btn.disabled = false; return; }
+
+    const { data: urlData } = db.storage.from('watch-images').getPublicUrl(path);
+    const { error: insErr } = await db.from('watches').insert({ name, image_url: urlData.publicUrl });
+    if (insErr) { status.textContent = 'Save failed: ' + insErr.message; btn.disabled = false; return; }
+
+    status.textContent = '✓ Watch added!';
+    document.getElementById('newWatchName').value = '';
+    document.getElementById('newWatchImg').value = '';
+    btn.disabled = false;
+    loadAdminWatches();
+    loadWatches();
+  }
+
+  async function deleteWatch(id, imageUrl) {
+    if (!confirm('Delete this watch?')) return;
+    const path = imageUrl.split('/watch-images/')[1];
+    if (path) await db.storage.from('watch-images').remove([path]);
+    await db.from('watches').delete().eq('id', id);
+    loadAdminWatches();
+    loadWatches();
+  }
+
+  /* ── Public watch grid ── */
+  const WA_SVG = `<svg width="14" height="14" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`;
+
+  async function loadWatches() {
+    const grid = document.getElementById('watchesGrid');
+    const empty = document.getElementById('watchesEmpty');
+    const { data } = await db.from('watches').select('*').order('created_at', { ascending: false });
+    if (!data || !data.length) {
+      grid.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    grid.innerHTML = data.map(w => `
+      <div class="watch-card">
+        <div class="watch-card-img-wrap">
+          <img class="watch-card-img" src="${w.image_url}" alt="${w.name}" loading="lazy" />
+        </div>
+        <div class="watch-card-body">
+          <p class="watch-card-name">${w.name}</p>
+          <a href="https://wa.me/254113236161?text=Hello%2C%20I'm%20interested%20in%20the%20${encodeURIComponent(w.name)}.%20Please%20share%20more%20details."
+             class="watch-card-wa" target="_blank" rel="noopener">
+            ${WA_SVG} Order on WhatsApp
+          </a>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  loadWatches();
+</script>
+</body>
+</html>
