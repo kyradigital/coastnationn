@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My tickets — Coast Nation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  @media print{
+    .topbar,.footer,.no-print{display:none !important}
+    body{background:#fff;color:#000}
+    .ticket-stub{border:1px solid #bbb;background:#fff;color:#000;break-inside:avoid}
+    .ticket-code{color:#000}
+    .panel{background:#fff;border-color:#bbb}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar" id="topbar"></header>
+
+<main class="wrap" style="max-width:820px;padding-top:34px;padding-bottom:60px">
+  <div id="view"></div>
+</main>
+
+<footer class="footer" id="footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/ticket.js"></script>
+</body>
+</html>
