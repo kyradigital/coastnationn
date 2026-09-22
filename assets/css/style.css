@@ -247,8 +247,10 @@ select option{background:var(--bg-2);color:var(--text)}
   border:1px solid var(--line-strong);border-radius:var(--radius);
   padding:20px;display:flex;gap:20px;align-items:center;margin-bottom:14px;flex-wrap:wrap;
 }
-.ticket-stub .qr{background:#fff;padding:9px;border-radius:12px;flex:none}
-.ticket-stub .qr canvas,.ticket-stub .qr img{display:block;width:118px;height:118px}
+.ticket-stub .qr{background:#fff;padding:8px;border-radius:12px;flex:none;line-height:0}
+.ticket-stub .qr svg{display:block;width:132px;height:132px}
+.ticket-stub .qr.qr-fallback{background:#fff;color:#0b1620;width:132px;height:132px;display:grid;place-items:center;text-align:center;padding:10px;line-height:1.3}
+.qr-fallback-inner b{display:block;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:.9rem;letter-spacing:.04em;margin-top:6px;word-break:break-all}
 .ticket-code{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:1.05rem;letter-spacing:.08em;color:var(--sand)}
 
 /* ---------- badges ---------- */
@@ -392,6 +394,13 @@ figure.chart figcaption p{margin:0}
 .status-track i{display:block;height:100%;border-radius:99px}
 .status-val{text-align:right;font-family:'Sora',sans-serif;font-weight:600}
 
+.setup-steps{margin:0 0 18px;padding-left:20px;color:var(--muted);line-height:1.65}
+.setup-steps li{margin-bottom:7px}
+.setup-steps b{color:var(--text)}
+.setup-steps code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:5px;font-size:.92em}
+#tgOut{line-height:1.7}
+#tgOut .badge{margin-right:6px}
+
 .row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;min-width:104px}
 
 .danger-zone{border-color:rgba(255,95,109,.35);background:rgba(255,95,109,.04)}
@@ -479,6 +488,10 @@ figure.chart figcaption p{margin:0}
   .admin-main{padding:20px 16px 60px}
 }
 @media (max-width:620px){
+  .topbar-inner{gap:10px}
+  .brand{font-size:1rem;white-space:nowrap}
+  .brand span.sub{display:none}
+  .nav-actions .btn{padding:7px 12px;font-size:.8rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
   .search-box{margin-left:0;max-width:none}
   .grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
