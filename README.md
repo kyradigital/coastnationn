@@ -1,7 +1,8 @@
 # Coast Nation — online ticketing
 
-A complete event-ticketing website: public listing, checkout with online payment, instant QR tickets,
-and a hidden admin control room. Plain HTML/CSS/JS — no build step, no npm. All data lives in Supabase.
+A complete event-ticketing website: public listing, verified checkout with online payment,
+QR tickets emailed to the buyer, a gate-check page, and a hidden admin dashboard.
+Plain HTML/CSS/JS — no build step, no npm. All data lives in Supabase.
 
 ---
 
@@ -9,18 +10,22 @@ and a hidden admin control room. Plain HTML/CSS/JS — no build step, no npm. Al
 
 ```
 index.html          public homepage — every published event
-event.html          one event: details + ticket picker + checkout
+event.html          one event: details + ticket picker + verified checkout
 ticket.html         order confirmation / QR ticket wallet ("find my ticket")
-admin.html          the control room (PIN protected)
+verify.html         what a scanned QR opens — is this ticket good?
+admin.html          the admin dashboard (PIN protected)
 assets/css/style.css
 assets/video/       hero.mp4 / hero.webm / hero-poster.jpg — the homepage banner
 assets/js/config.js Supabase URL + public key. Edit only if you move projects.
 assets/js/common.js shared helpers (formatting, footer, the secret door)
 assets/js/public.js homepage logic
-assets/js/event.js  event page + Paystack / Flutterwave checkout
+assets/js/event.js  event page + OTP verification + Paystack / Flutterwave checkout
 assets/js/ticket.js ticket wallet + QR rendering
+assets/js/verify.js the ticket-check page
 assets/js/charts.js hand-built SVG charts for the analytics tab
 assets/js/admin.js  the whole admin app
+assets/js/vendor/   Supabase, the QR encoder and the camera scanner, self-hosted.
+                    Nothing loads from a CDN, so nothing breaks when a CDN does.
 ```
 
 Open `index.html` in a browser and it just works. To put it online, drag this folder onto
@@ -43,27 +48,54 @@ You can also just open `admin.html` directly — the secret click is convenience
 
 ---
 
-## How the money works
+## How a ticket gets made
 
-Right now **no payment key is set**, so a customer who checks out gets a purchase saved as *pending*
-and a "Pay via WhatsApp" button. You confirm payment yourself in Admin → Purchases → **Mark paid**,
-which issues their QR tickets.
+This is the part worth understanding, because none of it happens in the browser.
 
-To take payment automatically:
+```
+buyer picks tickets
+   → types name + email
+   → server emails a 6-digit code        (request_otp)
+   → buyer types the code back           (verify_otp → one-time token)
+   → order created, tickets NOT issued   (create_order)
+   → buyer pays with Paystack
+   → PAYSTACK calls our webhook          (Edge Function: paystack-webhook)
+   → webhook checks the signature, then re-asks Paystack "was this really paid?"
+   → only now: order marked paid, tickets created, QR generated, email sent
+```
 
-1. Open a [Paystack](https://paystack.com) account (card + M-Pesa in Kenya) — or Flutterwave.
-2. Copy your **public key** (`pk_live_…` or `FLWPUBK-…`). **Never paste a secret key here** — this
-   code runs in the customer's browser.
-3. Admin → Settings → Payments → paste it → Save.
+The browser never creates a ticket. If someone fakes a "payment succeeded" message in their
+browser console, the order simply stays pending and nothing is issued. Codes are stored
+bcrypt-hashed — not even the database holds the plaintext — and each verification token works
+once, for the one email address that was verified.
 
-From then on: customer pays in the popup → tickets are issued instantly.
+Every QR contains a link to `verify.html?t=…` carrying a 48-character random token. It holds **no**
+name, email, phone or order reference. Open it and you see valid / already used / cancelled.
+Marking a ticket used asks for your PIN, so a punter scanning their own QR cannot burn it.
 
-**One honest caveat.** Because the whole site is static, the "payment succeeded" message comes from
-the customer's browser. Purchases paid that way show a small **unverified** badge in your Purchases table.
-For real money this should be checked server-side against the gateway. When you're ready, the next
-step is a Supabase Edge Function holding your *secret* key that verifies each transaction and flips
-`payment_verified` to true — ask me and I'll add it. Until then, cross-check large orders against
-your Paystack dashboard.
+---
+
+## What you must set up before selling
+
+Everything below lives in **Admin → Settings**, except the two marked *Supabase* / *Paystack*.
+
+| What | Where | Why |
+|---|---|---|
+| `resend_api_key` | Settings → Email & ticket delivery | sends the OTP and the ticket |
+| `mail_from_email` | Settings → Email & ticket delivery | must be on a domain verified at Resend |
+| `mail_from_name` | Settings → Email & ticket delivery | what the buyer sees as the sender |
+| `site_url` | Settings → Email & ticket delivery | your live address — the QR links point at it |
+| `paystack_public_key` | Settings → Payments | opens the payment popup |
+| `paystack_secret_key` | Settings → Payment confirmation | the webhook's password. **Without it the webhook refuses everything and no ticket is ever issued.** |
+| `PAYSTACK_SECRET_KEY` | *Supabase* → Edge Functions → Secrets | the same key, for the signature check |
+| Webhook URL | *Paystack* dashboard → Settings → API Keys & Webhooks | `https://ygfmcllmwtkfmcpgovbl.supabase.co/functions/v1/paystack-webhook` |
+
+Until the Resend key is in, the code can't be emailed, so nobody can check out. Until the Paystack
+secret is in, payments go through but tickets are never created. Both are deliberate: the system
+fails closed rather than handing out tickets it isn't sure about.
+
+You can turn verification off entirely with the **Require email verification** switch in Settings
+if you ever need to (a door sale, say). It is on by default.
 
 ---
 
@@ -77,11 +109,12 @@ your Paystack dashboard.
    currently on sale, e.g. *Current ticket — Early Bird · KES 1,000*; turn Early Bird off and the card
    moves on to Regular.
 3. **Publish** — the event appears on the homepage immediately.
-4. Customers buy → they get a QR ticket page they can screenshot or print.
-5. **Gate check-in** — open Admin → Gate check-in on your phone, scan the QR with the camera (or type
-   the code). It says ✅ let them in, or ⚠️ already scanned. Every scan is recorded.
-6. **Purchases** — see every buyer, mark manual payments as paid, cancel a purchase, export CSV,
-   and delete purchases (one at a time, or in bulk from the red panel at the bottom).
+4. Customers verify, pay, and get their QR ticket by email and on screen.
+5. **Gate check-in** — two ways. Scan the QR with any phone camera and it opens `verify.html`
+   (enter the PIN to let them in), or open Admin → Gate check-in and scan from there.
+6. **Purchases** — search by name, email, phone or reference; see whether the ticket was delivered;
+   **Resend** the ticket email; **Cancel a ticket** so it stops working at the gate; export CSV;
+   delete purchases (one at a time, or in bulk from the red panel at the bottom).
 7. **Analytics** — revenue and tickets per day, revenue by event, tickets by type, where checkouts
    ended up, and what time of day people buy. Switch between the last 7 / 30 / 90 days. Every chart
    has a "Show the numbers" link if you'd rather read the raw figures.
@@ -95,25 +128,35 @@ badge in the header and footer across the whole site.
 
 ---
 
+## Sale alerts on your phone
+
+Admin → Settings → Sale alerts sends a Telegram message the moment a sale clears. If Telegram is
+slow or unreachable the message goes into a queue and is retried for two days rather than being
+lost. Admin → Settings shows the queue's health.
+
+---
+
 ## Supabase
 
 - Project: **coast-nation** — `https://ygfmcllmwtkfmcpgovbl.supabase.co`
-- Tables: `events`, `ticket_types`, `orders`, `order_items`, `tickets`, `settings`, `admin_attempts`
+- Tables: `events`, `ticket_types`, `orders`, `order_items`, `tickets`, `settings`,
+  `otp_codes`, `verified_contacts`, `alert_outbox`, `admin_attempts`
 - Storage bucket: `event-images` (public, 5MB max per image)
+- Edge Function: `paystack-webhook`
 
-Security model: the public can only *read* published events and their active ticket types. Orders and
-tickets are invisible to the public — every admin action goes through a database function that checks
-the PIN server-side, so the key sitting in `config.js` on its own opens nothing sensitive.
-
-A sample event ("Sundowner Sessions Vol. 4") is already loaded so the site isn't empty. Delete it from
-Admin → Events whenever you like.
+Security model: the public can only *read* published events and their active ticket types.
+Orders, tickets, OTP codes and private settings are invisible — every admin action goes through a
+database function that checks the PIN server-side. The key sitting in `config.js` opens nothing
+sensitive on its own. Exactly six functions are reachable without the PIN (`request_otp`,
+`verify_otp`, `create_order`, `confirm_order_payment`, `get_order`, `verify_ticket`), and none of
+them can issue a ticket.
 
 ---
 
 ## Ideas for later
 
-- Server-side payment verification (Edge Function) — the important one
-- Emailing the ticket automatically after purchase (Resend / SendGrid)
+- A PDF ticket attached to the email (today the email carries the QR and links to the ticket page)
+- WhatsApp delivery as well as email (Twilio or the Meta Cloud API)
 - M-Pesa STK push directly via Safaricom Daraja
 - Multiple organisers with their own logins and their own dashboards
 - Discount codes, tiered pricing, group tickets
