@@ -7,9 +7,52 @@
   const cfg = await CN.settings();
   const view = CN.$("#view");
   const ref = CN.qs("ref");
+  const justPaid = CN.qs("paid") === "1";
 
   if (!ref) return lookupForm();
-  await show(ref);
+  if (justPaid) await waitForPayment(ref);
+  else await show(ref);
+
+  /* ------------------------------------------------------------------
+     Straight back from the payment window.
+
+     The ticket is created by the payment webhook, not by the browser, so
+     for a few seconds the order is still "pending". Tell the buyer we're
+     confirming — never that they haven't paid — and poll until it lands.
+     ------------------------------------------------------------------ */
+  async function waitForPayment(reference) {
+    const deadline = Date.now() + 120000;   // give the webhook two minutes
+    view.innerHTML = `
+      <div class="panel center" style="max-width:480px;margin:0 auto;padding:34px 24px">
+        <span class="spinner" style="width:30px;height:30px;border-width:3px"></span>
+        <h2 style="margin:18px 0 6px">Payment received</h2>
+        <p class="muted" style="margin:0">Confirming it with the bank and building your ticket. This usually takes a few seconds — keep this page open.</p>
+        <p class="small muted" style="margin:18px 0 0">Reference <b class="ticket-code" style="font-size:.85rem">${CN.esc(reference.toUpperCase())}</b></p>
+      </div>`;
+
+    while (Date.now() < deadline) {
+      let o = null;
+      try {
+        o = await CN.rpc("get_order", { p_reference: reference.toUpperCase() });
+      } catch (e) { /* transient — try again */ }
+      if (o && (o.status === "paid" || o.status === "cancelled")) return show(reference);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+
+    // Still nothing. Don't accuse them of not paying — say what's happening.
+    const wa = (cfg.contact_whatsapp || "").replace(/\D/g, "");
+    view.innerHTML = `
+      <div class="panel" style="max-width:520px;margin:0 auto;border-color:rgba(255,200,87,.4);background:rgba(255,200,87,.07)">
+        <h2 style="margin-bottom:6px">Still confirming your payment</h2>
+        <p class="muted">Your payment went through but the confirmation hasn't reached us yet. Your ticket will appear here — and land in your email — as soon as it does. Nothing is lost.</p>
+        <p class="small muted">Reference <b class="ticket-code" style="font-size:.85rem">${CN.esc(reference.toUpperCase())}</b></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+          <button class="btn btn-primary btn-sm" onclick="window.location.reload()">Check again</button>
+          ${wa ? `<a class="btn btn-soft btn-sm" target="_blank" rel="noopener"
+                href="https://wa.me/${wa}?text=${encodeURIComponent("Hi Coast Nation, I paid for order " + reference.toUpperCase() + " but my ticket hasn't come through.")}">Message us</a>` : ""}
+        </div>
+      </div>`;
+  }
 
   function lookupForm(msg) {
     view.innerHTML = `
@@ -91,7 +134,7 @@
         .map(
           (t, i) => `
         <div class="ticket-stub">
-          <div class="qr" data-qr="${CN.esc(t.code)}"></div>
+          <div class="qr" data-qr="${CN.esc(verifyUrl(t))}" data-code="${CN.esc(t.code)}"></div>
           <div style="flex:1;min-width:180px">
             <div class="small muted">Ticket ${i + 1} of ${o.tickets.length}</div>
             <div style="font-weight:600;font-size:1.05rem">${CN.esc(t.type)}</div>
@@ -101,12 +144,18 @@
         </div>`
         )
         .join("");
-      CN.$$("[data-qr]").forEach((box) => drawQR(box, box.dataset.qr));
+      CN.$$("[data-qr]").forEach((box) => drawQR(box, box.dataset.qr, box.dataset.code));
     }
   }
 
+  /* ---------- the QR points at the check page, never at personal data ---------- */
+  function verifyUrl(t) {
+    const base = (cfg.site_url || location.origin + location.pathname.replace(/[^/]*$/, "")).replace(/\/+$/, "");
+    return t.token ? `${base}/verify.html?t=${t.token}` : t.code;
+  }
+
   /* ---------- QR drawing (self-hosted encoder, SVG output) ---------- */
-  function drawQR(box, text) {
+  function drawQR(box, text, code) {
     try {
       if (typeof qrcode !== "function") throw new Error("QR library missing");
       const qr = qrcode(0, "M");          // 0 = pick the smallest size that fits
@@ -123,7 +172,7 @@
         }
       }
       box.innerHTML =
-        `<svg viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges" role="img" aria-label="Ticket QR code ${CN.esc(text)}">` +
+        `<svg viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges" role="img" aria-label="Ticket QR code ${CN.esc(code || text)}">` +
         `<rect width="${size}" height="${size}" fill="#ffffff"/>` +
         `<path d="${cells}" fill="#0b1620"/></svg>`;
     } catch (e) {
@@ -133,7 +182,7 @@
       box.innerHTML =
         `<div class="qr-fallback-inner">
            <div class="small">Show this code at the gate</div>
-           <b>${CN.esc(text)}</b>
+           <b>${CN.esc(code || text)}</b>
          </div>`;
     }
   }

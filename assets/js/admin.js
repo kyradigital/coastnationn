@@ -104,7 +104,7 @@
       const [stats, events, orders, settings] = await Promise.all([
         CN.rpc("admin_stats", { p_pin: PIN }),
         CN.rpc("admin_events", { p_pin: PIN }),
-        CN.rpc("admin_orders", { p_pin: PIN, p_event_id: null, p_limit: 300 }),
+        CN.rpc("admin_orders", { p_pin: PIN, p_event_id: null, p_limit: 300, p_search: null }),
         CN.rpc("admin_settings", { p_pin: PIN })
       ]);
       cache = { stats, events: events || [], orders: orders || [], settings: settings || {}, analytics: cache.analytics };
@@ -264,6 +264,10 @@
         <div><h1 style="font-size:1.8rem;margin:0">Purchases</h1>
           <p class="muted small" style="margin:4px 0 0">Every ticket purchase, newest first.</p></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div class="search-box" style="margin:0;min-width:210px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="orderSearch" type="search" placeholder="Name, email, phone, ref or ticket ID" value="${esc(orderSearch)}">
+          </div>
           <select id="orderFilter" style="width:auto">
             <option value="">All events</option>
             ${cache.events.map((e) => `<option value="${e.id}">${esc(e.name)}</option>`).join("")}
@@ -304,7 +308,7 @@
     return `
       <div class="table-wrap"><table>
         <thead><tr>
-          <th>Reference</th><th>Buyer</th><th>Event</th><th>Tickets</th><th>Amount</th><th>Status</th><th>When</th><th></th>
+          <th>Reference</th><th>Buyer</th><th>Event</th><th>Tickets</th><th>Amount</th><th>Status</th><th>Ticket</th><th>When</th><th></th>
         </tr></thead>
         <tbody>
         ${rows.map((o) => {
@@ -317,14 +321,23 @@
             <td><span class="ticket-code" style="font-size:.82rem">${esc(o.reference)}</span></td>
             <td>${esc(o.buyer_name)}<div class="small muted">${esc(o.buyer_phone)}<br>${esc(o.buyer_email)}</div></td>
             <td>${esc(o.event_name)}</td>
-            <td>${tix}<div class="small muted">${esc((o.items || []).map((i) => i.name + "×" + i.quantity).join(", "))}</div></td>
+            <td>${tix}<div class="small muted">${esc((o.items || []).map((i) => i.name + "×" + i.quantity).join(", "))}</div>
+                ${(o.tickets || []).length ? `<div class="small muted" style="margin-top:3px">${(o.tickets || []).map((t) =>
+                  `<span class="ticket-code" style="font-size:.72rem">${esc(t.code)}</span>${t.status === "used" ? " <span class=\"badge dim\">used</span>" : t.status === "void" ? " <span class=\"badge bad\">void</span>" : ""}`).join("<br>")}</div>` : ""}</td>
             <td><b>${esc(CN.amount(o.total_amount))}</b></td>
             <td>${badge}</td>
+            <td class="small">
+              ${o.contact_verified ? `<span class="badge ok" title="Email verified by code before paying">verified</span><br>` : `<span class="badge dim">unverified</span><br>`}
+              <span class="muted">${esc(o.delivery_method || "email")}</span>
+              ${o.delivered_at ? `<br><span class="muted" style="font-size:.72rem">sent ${esc(CN.prettyDateTime(o.delivered_at))}</span>`
+                : o.delivery_error ? `<br><span style="color:var(--danger);font-size:.72rem">not sent</span>` : ""}
+            </td>
             <td class="small muted">${esc(CN.prettyDateTime(o.created_at))}</td>
             <td>
               <div class="row-actions">
               ${o.status === "pending" ? `<button class="btn btn-primary btn-sm" data-act="mark-paid" data-o="${o.id}">Mark paid</button>` : ""}
               ${o.status !== "cancelled" ? `<button class="btn btn-soft btn-sm" data-act="cancel-order" data-o="${o.id}">Cancel</button>` : ""}
+              ${o.status === "paid" ? `<button class="btn btn-soft btn-sm" data-act="resend-ticket" data-o="${o.id}" title="Email the ticket again">Resend</button>` : ""}
               ${o.status === "paid" && cache.settings.telegram_chat_id ? `<button class="btn btn-soft btn-sm" data-act="tg-resend" data-o="${o.id}" title="Send this sale to Telegram again">Re-alert</button>` : ""}
               <button class="btn btn-danger btn-sm" data-act="del-order" data-o="${o.id}" title="Delete this purchase for good">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>
@@ -340,6 +353,7 @@
      ANALYTICS
      ========================================================== */
   let analyticsDays = 30;
+  let orderSearch = "";
 
   function viewAnalytics() {
     const a = cache.analytics;
@@ -455,6 +469,7 @@
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary" data-act="scan">Check in</button>
           <button class="btn btn-soft" data-act="peek">Check only (don't mark used)</button>
+          <button class="btn btn-danger" data-act="void-ticket" title="Stop a ticket working at the gate">Cancel a ticket</button>
           <button class="btn btn-ghost" data-act="camera"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.8l1.2-2h6l1.2 2h1.8A2.5 2.5 0 0 1 20 8.5v9A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.4"/></svg> Use camera</button>
         </div>
         <div id="reader" style="margin-top:16px"></div>
@@ -468,6 +483,7 @@
   function viewSettings() {
     const s = cache.settings || {};
     const val = (k, d = "") => esc(s[k] ?? d);
+    const webhookUrl = (CN_CONFIG.SUPABASE_URL || "").replace(/\/+$/, "") + "/functions/v1/paystack-webhook";
     return `
       <div class="admin-head">
         <div><h1 style="font-size:1.8rem;margin:0">Settings</h1>
@@ -516,6 +532,52 @@
         <p class="small" style="margin-top:12px">${s.paystack_public_key || s.flutterwave_public_key
           ? `<span class="badge ok">Live</span> <span class="muted">A payment key is set — customers pay online and get their QR instantly.</span>`
           : `<span class="badge warn">Not set</span> <span class="muted">Purchases are saved as <b>pending</b> and customers are told to pay you on WhatsApp; you release their tickets with <b>Mark paid</b> under Purchases.</span>`}</p>
+      </div>
+
+      <div class="panel" style="max-width:640px">
+        <h3>Email &amp; ticket delivery</h3>
+        <p class="small muted">Used for the 6-digit verification code and for emailing tickets after payment.</p>
+        <ol class="setup-steps small">
+          <li>Create a free account at <b>resend.com</b> → Domains → add your domain and paste the DNS records it gives you.</li>
+          <li>API Keys → Create → copy the key (starts <code>re_</code>) and paste it below.</li>
+          <li>Set the "from" address to something on that verified domain.</li>
+        </ol>
+        <div class="field"><label>Resend API key</label>
+          <input data-set="resend_api_key" type="password" placeholder="re_..." value="${val("resend_api_key")}"></div>
+        <div class="field-row">
+          <div class="field"><label>Sender name</label><input data-set="mail_from_name" value="${val("mail_from_name")}"></div>
+          <div class="field"><label>Sender address</label><input data-set="mail_from_email" placeholder="tickets@yourdomain.com" value="${val("mail_from_email")}"></div>
+        </div>
+        <div class="field"><label>Public site address (QR codes and email links point here)</label>
+          <input data-set="site_url" placeholder="https://yourdomain.com" value="${val("site_url")}"></div>
+        <label class="checkbox" style="margin-bottom:16px">
+          <input type="checkbox" data-set-bool="otp_required" ${s.otp_required !== "false" ? "checked" : ""}>
+          Require buyers to verify their email with a code before paying</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" data-act="save-settings">Save</button>
+          <button class="btn btn-soft" data-act="mail-test">Send myself a test email</button>
+        </div>
+        <div id="mailOut" class="small" style="margin-top:12px"></div>
+        <p class="small" style="margin-top:12px">${s.resend_api_key && s.mail_from_email
+          ? `<span class="badge ok">Ready</span> <span class="muted">Codes and tickets will send.</span>`
+          : `<span class="badge warn">Not set up</span> <span class="muted">Until this is filled in, verification codes cannot be sent — buyers will be stuck at the code screen.</span>`}</p>
+      </div>
+
+      <div class="panel" style="max-width:640px">
+        <h3>Payment confirmation</h3>
+        <p class="small muted">Tickets are only created when Paystack itself confirms the payment, never because a browser said so. That needs the webhook.</p>
+        <ol class="setup-steps small">
+          <li>Paystack dashboard → Settings → API Keys &amp; Webhooks.</li>
+          <li>Paste this as the <b>Webhook URL</b>:<br>
+            <code style="word-break:break-all">${esc(webhookUrl)}</code></li>
+          <li>Copy your <b>secret key</b> (<code>sk_live_...</code>) into the box below <i>and</i> into Supabase → Edge Functions → paystack-webhook → Secrets as <code>PAYSTACK_SECRET_KEY</code>.</li>
+        </ol>
+        <div class="field"><label>Paystack secret key</label>
+          <input data-set="paystack_secret_key" type="password" placeholder="sk_live_..." value="${val("paystack_secret_key")}"></div>
+        <button class="btn btn-primary" data-act="save-settings">Save</button>
+        <p class="small" style="margin-top:12px">${s.paystack_secret_key
+          ? `<span class="badge ok">Set</span> <span class="muted">The webhook can confirm payments.</span>`
+          : `<span class="badge bad">Missing</span> <span class="muted">Without this, a paid purchase will stay pending until you mark it paid by hand.</span>`}</p>
       </div>
 
       <div class="panel" style="max-width:640px">
@@ -788,6 +850,24 @@
   function wire() {
     $$("[data-act]").forEach((el) => (el.onclick = () => handle(el.dataset.act, el.dataset)));
 
+    const os = $("#orderSearch");
+    if (os) {
+      let t;
+      os.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(async () => {
+          orderSearch = os.value.trim();
+          const rows = await CN.rpc("admin_orders", { p_pin: PIN, p_event_id: $("#orderFilter")?.value || null, p_limit: 300, p_search: orderSearch || null });
+          $("#ordersBox").innerHTML = (rows || []).length
+            ? ordersTable(rows)
+            : `<div class="empty"><h3>Nothing matches “${esc(orderSearch)}”</h3><p class="small">Try part of a name, an email, a phone number, a reference or a ticket ID.</p></div>`;
+          wire();
+          const again = $("#orderSearch");
+          if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+        }, 260);
+      });
+    }
+
     const of = $("#orderFilter");
     if (of) of.onchange = () => {
       const id = of.value;
@@ -932,6 +1012,17 @@
         if (cache.analytics) await loadAnalytics();
         return render();
       }
+      if (act === "resend-ticket") {
+        const r = await CN.rpc("admin_resend_ticket", { p_pin: PIN, p_order_id: d.o });
+        return CN.toast(r.message || (r.ok ? "Queued." : "Could not resend."), r.ok ? "ok" : "err");
+      }
+      if (act === "void-ticket") {
+        const code = prompt("Ticket ID to cancel (this stops it working at the gate):");
+        if (!code) return;
+        const r = await CN.rpc("admin_void_ticket", { p_pin: PIN, p_code: code.trim() });
+        CN.toast(r.ok ? `Ticket ${code.trim()} cancelled.` : r.message, r.ok ? "ok" : "err");
+        await refresh(); return render();
+      }
       if (act === "tg-resend") {
         await CN.rpc("admin_telegram_resend", { p_pin: PIN, p_order_id: d.o });
         return CN.toast("Sent to Telegram.", "ok");
@@ -941,6 +1032,7 @@
       if (act === "peek") return doScan(false);
       if (act === "camera") return startCamera();
       if (act === "save-settings") return saveSettings();
+      if (act === "mail-test") return mailTest();
       if (act === "tg-find") return telegramFind();
       if (act === "tg-pick") {
         $("#tgChat").value = d.chat;
@@ -1026,6 +1118,27 @@
     }
   }
 
+
+  /* ---------- email test ---------- */
+  async function mailTest() {
+    const out = $("#mailOut");
+    const to = prompt("Send the test email to which address?", cache.settings.contact_email || "");
+    if (!to) return;
+    out.innerHTML = `<span class="badge warn">Sending</span> queueing…`;
+    try {
+      for (const k of ["resend_api_key", "mail_from_name", "mail_from_email", "site_url"]) {
+        const el = $(`[data-set="${k}"]`);
+        if (el) await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: k, p_value: el.value.trim() });
+      }
+      const r = await CN.rpc("admin_mail_test", { p_pin: PIN, p_to: to.trim() });
+      out.innerHTML = r.ok
+        ? `<span class="badge ok">Queued</span> <span class="muted">${esc(r.message)}</span>`
+        : `<span class="badge bad">Problem</span> <span class="muted">${esc(r.message)}</span>`;
+      await refresh();
+    } catch (e) {
+      out.innerHTML = `<span class="badge bad">Problem</span> <span class="muted">${esc(e.message)}</span>`;
+    }
+  }
 
   /* ---------- telegram ---------- */
   function tgSay(html, kind) {

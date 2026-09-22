@@ -167,59 +167,245 @@
     btn.textContent = n === 0 ? "Select tickets to continue" : `Checkout · ${n} ticket${n > 1 ? "s" : ""}`;
   }
 
-  /* ---------------- checkout ---------------- */
+  /* ---------------- checkout: details → verify → pay ---------------- */
+  let verified = null;   // { token, destination } once the code checks out
+
+  function orderSummary() {
+    return Object.entries(cart).filter(([, q]) => q > 0).map(([id, q]) => {
+      const tt = ev.ticket_types.find((x) => x.id === id);
+      return `<div class="meta-row" style="justify-content:space-between"><span>${CN.esc(tt.name)} × ${q}</span><span>${CN.money(Number(tt.price) * q)}</span></div>`;
+    }).join("");
+  }
+
   function openBuyerModal() {
     const total = cartTotal();
-    const lines = Object.entries(cart)
-      .filter(([, q]) => q > 0)
-      .map(([id, q]) => {
-        const tt = ev.ticket_types.find((x) => x.id === id);
-        return `<div class="meta-row" style="justify-content:space-between"><span>${CN.esc(tt.name)} × ${q}</span><span>${CN.money(Number(tt.price) * q)}</span></div>`;
-      })
-      .join("");
-
     CN.$("#modalHost").innerHTML = `
       <div class="modal-backdrop" id="backdrop">
         <div class="modal" style="max-width:520px">
           <div class="modal-head">
-            <h3 style="margin:0">Your details</h3>
+            <h3 style="margin:0" id="coTitle">Your details</h3>
             <button class="x-btn" id="closeModal">&times;</button>
           </div>
-          <div class="modal-body">
-            <div class="panel" style="background:rgba(255,255,255,.03);padding:14px;margin-bottom:18px">
-              <div style="font-weight:600;margin-bottom:6px">${CN.esc(ev.name)}</div>
-              ${lines}
-              <div class="total-row" style="padding:10px 0 0"><span class="muted">Total</span><b>${CN.amount(total)}</b></div>
-            </div>
-            <div class="field"><label>Full name</label><input id="bName" placeholder="Jina lako kamili" autocomplete="name"></div>
-            <div class="field"><label>Email (your ticket link is sent here)</label><input id="bEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>
-            <div class="field"><label>Phone number</label><input id="bPhone" placeholder="07XX XXX XXX" autocomplete="tel"></div>
-            <p class="small muted" style="margin:0">By continuing you agree that tickets are non-refundable unless the event is cancelled.</p>
-          </div>
-          <div class="modal-foot">
-            <button class="btn btn-soft" id="cancelModal">Back</button>
-            <button class="btn btn-primary" id="payBtn">${total === 0 ? "Get free ticket" : "Pay " + CN.amount(total)}</button>
-          </div>
+          <div class="modal-body" id="coBody"></div>
+          <div class="modal-foot" id="coFoot"></div>
         </div>
       </div>`;
-
-    const close = () => (CN.$("#modalHost").innerHTML = "");
+    const close = () => { CN.$("#modalHost").innerHTML = ""; };
     CN.$("#closeModal").onclick = close;
-    CN.$("#cancelModal").onclick = close;
     CN.$("#backdrop").addEventListener("click", (e) => { if (e.target.id === "backdrop") close(); });
-    CN.$("#payBtn").onclick = startCheckout;
+    stepDetails();
   }
 
-  async function startCheckout() {
-    const btn = CN.$("#payBtn");
-    const buyer = {
+  /* ---- step 1: who are you, and where should the ticket go ---- */
+  function stepDetails(keep) {
+    const total = cartTotal();
+    const v = keep || {};
+    CN.$("#coTitle").textContent = "Your details";
+    CN.$("#coBody").innerHTML = `
+      <div class="panel" style="background:rgba(255,255,255,.03);padding:14px;margin-bottom:18px">
+        <div style="font-weight:600;margin-bottom:6px">${CN.esc(ev.name)}</div>
+        ${orderSummary()}
+        <div class="total-row" style="padding:10px 0 0"><span class="muted">Total</span><b>${CN.amount(total)}</b></div>
+      </div>
+
+      <div class="field"><label>Full name</label>
+        <input id="bName" placeholder="Jina lako kamili" autocomplete="name" value="${CN.esc(v.name || "")}"></div>
+
+      <div class="field">
+        <label>How would you like to receive your ticket?</label>
+        <div class="seg" id="methodPick">
+          <button type="button" class="seg-btn active" data-method="email">Email</button>
+          <button type="button" class="seg-btn" data-method="whatsapp" disabled title="Coming soon">WhatsApp</button>
+        </div>
+      </div>
+
+      <div class="field"><label>Email address</label>
+        <input id="bEmail" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email" value="${CN.esc(v.email || "")}">
+        <div class="small muted" style="margin-top:6px">We send a 6-digit code here to make sure your ticket reaches you.</div></div>
+
+      <div class="field"><label>Phone number</label>
+        <input id="bPhone" inputmode="tel" placeholder="07XX XXX XXX" autocomplete="tel" value="${CN.esc(v.phone || "")}"></div>
+
+      <p class="small muted" style="margin:0">Tickets are non-refundable unless the event is cancelled.</p>`;
+
+    CN.$("#coFoot").innerHTML = `
+      <button class="btn btn-soft" id="coCancel">Cancel</button>
+      <button class="btn btn-primary" id="coSend">Send verification code</button>`;
+
+    CN.$$("#methodPick .seg-btn").forEach((b) => b.addEventListener("click", () => {
+      if (b.disabled) return;
+      CN.$$("#methodPick .seg-btn").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+    }));
+    CN.$("#coCancel").onclick = () => (CN.$("#modalHost").innerHTML = "");
+    CN.$("#coSend").onclick = sendCode;
+    CN.$("#bEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") sendCode(); });
+  }
+
+  function readDetails() {
+    return {
       name: CN.$("#bName").value.trim(),
-      email: CN.$("#bEmail").value.trim(),
+      email: CN.$("#bEmail").value.trim().toLowerCase(),
       phone: CN.$("#bPhone").value.trim()
     };
-    if (!buyer.name || !buyer.email || !buyer.phone) return CN.toast("Please fill in all three fields.", "err");
-    if (!/^\S+@\S+\.\S+$/.test(buyer.email)) return CN.toast("That email doesn't look right.", "err");
+  }
 
+  async function sendCode() {
+    const d = readDetails();
+    if (!d.name) return CN.toast("Please put your name in.", "err");
+    if (!/^\S+@\S+\.\S+$/.test(d.email)) return CN.toast("That email doesn't look right.", "err");
+    if (!d.phone) return CN.toast("Please add a phone number.", "err");
+
+    // already verified this exact address in this session? skip straight to payment
+    if (verified && verified.destination === d.email) return stepPay(d);
+
+    const btn = CN.$("#coSend");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending…';
+    try {
+      const r = await CN.rpc("request_otp", { p_channel: "email", p_destination: d.email });
+      if (!r.ok) { btn.disabled = false; btn.textContent = "Send verification code"; return CN.toast(r.message, "err"); }
+      stepOtp(d, r.resend_in || 60);
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "Send verification code";
+      CN.toast(e.message, "err");
+    }
+  }
+
+  /* ---- step 2: the code ---- */
+  let tickTimer;
+  function stepOtp(d, resendIn) {
+    clearInterval(tickTimer);
+    CN.$("#coTitle").textContent = "Check your email";
+    CN.$("#coBody").innerHTML = `
+      <p class="muted" style="margin-bottom:6px">Enter the 6-digit code sent to</p>
+      <p style="font-weight:600;margin-bottom:22px;word-break:break-all">${CN.esc(d.email)}</p>
+
+      <div class="otp" id="otpBoxes">
+        ${Array.from({ length: 6 }, (_, i) =>
+          `<input class="otp-box" inputmode="numeric" autocomplete="${i === 0 ? "one-time-code" : "off"}" maxlength="1" data-i="${i}">`).join("")}
+      </div>
+      <div id="otpMsg" class="small" style="min-height:22px;margin-top:14px"></div>
+      <div class="small muted" id="resendLine" style="margin-top:2px"></div>`;
+
+    CN.$("#coFoot").innerHTML = `
+      <button class="btn btn-soft" id="otpBack">Back</button>
+      <button class="btn btn-primary" id="otpGo" disabled>Verify</button>`;
+
+    const boxes = CN.$$(".otp-box");
+    const value = () => boxes.map((b) => b.value).join("");
+    const sync = () => { CN.$("#otpGo").disabled = value().length !== 6; };
+
+    boxes.forEach((box, i) => {
+      box.addEventListener("input", () => {
+        box.value = box.value.replace(/\D/g, "").slice(0, 1);
+        if (box.value && i < 5) boxes[i + 1].focus();
+        sync();
+        if (value().length === 6) submitOtp(d);
+      });
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace" && !box.value && i > 0) boxes[i - 1].focus();
+        if (e.key === "Enter" && value().length === 6) submitOtp(d);
+      });
+      // pasting the whole code into any box fills them all
+      box.addEventListener("paste", (e) => {
+        const digits = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 6);
+        if (!digits) return;
+        e.preventDefault();
+        boxes.forEach((b, j) => (b.value = digits[j] || ""));
+        boxes[Math.min(digits.length, 5)].focus();
+        sync();
+        if (digits.length === 6) submitOtp(d);
+      });
+    });
+    boxes[0].focus();
+
+    CN.$("#otpBack").onclick = () => stepDetails(d);
+    CN.$("#otpGo").onclick = () => submitOtp(d);
+    startResendCountdown(d, resendIn);
+  }
+
+  function startResendCountdown(d, secs) {
+    const line = CN.$("#resendLine");
+    let left = secs;
+    const paint = () => {
+      if (!CN.$("#resendLine")) return clearInterval(tickTimer);
+      if (left > 0) {
+        const m = String(Math.floor(left / 60)).padStart(2, "0");
+        const s = String(left % 60).padStart(2, "0");
+        line.innerHTML = `Resend code in ${m}:${s}`;
+      } else {
+        clearInterval(tickTimer);
+        line.innerHTML = `<a href="#" id="resendLink" style="color:var(--teal)">Send a new code</a>`;
+        CN.$("#resendLink").onclick = async (e) => {
+          e.preventDefault();
+          line.textContent = "Sending…";
+          try {
+            const r = await CN.rpc("request_otp", { p_channel: "email", p_destination: d.email });
+            if (!r.ok) { CN.toast(r.message, "err"); left = r.retry_after || 60; paint(); tickTimer = setInterval(step, 1000); return; }
+            CN.toast("New code sent.", "ok");
+            left = r.resend_in || 60; paint();
+            tickTimer = setInterval(step, 1000);
+          } catch (err) { CN.toast(err.message, "err"); }
+        };
+      }
+      left--;
+    };
+    const step = paint;
+    paint();
+    tickTimer = setInterval(step, 1000);
+  }
+
+  async function submitOtp(d) {
+    const code = CN.$$(".otp-box").map((b) => b.value).join("");
+    if (code.length !== 6) return;
+    const btn = CN.$("#otpGo");
+    const msg = CN.$("#otpMsg");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    msg.textContent = "";
+    try {
+      const r = await CN.rpc("verify_otp", { p_channel: "email", p_destination: d.email, p_code: code });
+      if (!r.ok) {
+        msg.innerHTML = `<span style="color:var(--danger)">${CN.esc(r.message)}</span>`;
+        CN.$$(".otp-box").forEach((b) => (b.value = ""));
+        CN.$$(".otp-box")[0].focus();
+        btn.disabled = true; btn.textContent = "Verify";
+        return;
+      }
+      verified = { token: r.token, destination: r.destination };
+      msg.innerHTML = `<span style="color:var(--ok)">Verified</span>`;
+      setTimeout(() => stepPay(d), 350);
+    } catch (e) {
+      msg.innerHTML = `<span style="color:var(--danger)">${CN.esc(e.message)}</span>`;
+      btn.disabled = false; btn.textContent = "Verify";
+    }
+  }
+
+  /* ---- step 3: pay ---- */
+  function stepPay(d) {
+    clearInterval(tickTimer);
+    const total = cartTotal();
+    CN.$("#coTitle").textContent = "Confirm and pay";
+    CN.$("#coBody").innerHTML = `
+      <div class="panel" style="background:rgba(255,255,255,.03);padding:14px;margin-bottom:18px">
+        <div style="font-weight:600;margin-bottom:6px">${CN.esc(ev.name)}</div>
+        ${orderSummary()}
+        <div class="total-row" style="padding:10px 0 0"><span class="muted">Total</span><b>${CN.amount(total)}</b></div>
+      </div>
+      <div class="info-item" style="margin-bottom:14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ddc97" stroke-width="2" stroke-linecap="round" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.7 2.6L16 9.5"/></svg>
+        <div><div class="k">Verified — ticket goes to</div><div class="v" style="word-break:break-all">${CN.esc(d.email)}</div></div>
+      </div>
+      <p class="small muted" style="margin:0">Your ticket is created once the payment clears, and emailed to you automatically.</p>`;
+    CN.$("#coFoot").innerHTML = `
+      <button class="btn btn-soft" id="coBack2">Back</button>
+      <button class="btn btn-primary" id="payBtn">${total === 0 ? "Get free ticket" : "Pay " + CN.amount(total)}</button>`;
+    CN.$("#coBack2").onclick = () => stepDetails(d);
+    CN.$("#payBtn").onclick = () => startCheckout(d);
+  }
+
+  async function startCheckout(buyer) {
+    const btn = CN.$("#payBtn");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Creating order…';
 
@@ -230,29 +416,29 @@
         p_buyer_name: buyer.name,
         p_buyer_email: buyer.email,
         p_buyer_phone: buyer.phone,
-        p_items: Object.entries(cart)
-          .filter(([, q]) => q > 0)
-          .map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity }))
+        p_items: Object.entries(cart).filter(([, q]) => q > 0)
+                   .map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity })),
+        p_verify_token: verified ? verified.token : null,
+        p_delivery_method: "email"
       });
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Try again";
+      if (/VERIFICATION|CONTACT_NOT_VERIFIED/.test(e.message)) {
+        verified = null;
+        CN.toast("That verification expired — let's do it again.", "err");
+        return stepDetails(buyer);
+      }
       return CN.toast(e.message, "err");
     }
 
     const total = Number(order.total);
-
-    // Free tickets — issue immediately.
-    if (total <= 0) {
-      await finish(order.reference, "free", "FREE");
-      return;
-    }
+    if (total <= 0) return finish(order.reference, "free", "FREE");
 
     const provider = (cfg.payment_provider || "paystack").toLowerCase();
     const pk = provider === "flutterwave" ? cfg.flutterwave_public_key : cfg.paystack_public_key;
 
     if (!pk) {
-      // No gateway configured yet — the order is saved as pending and Coast Nation confirms manually.
       window.location.href = "ticket.html?ref=" + encodeURIComponent(order.reference) + "&pending=1";
       return;
     }
@@ -261,9 +447,7 @@
 
     if (provider === "flutterwave") {
       window.FlutterwaveCheckout({
-        public_key: pk,
-        tx_ref: order.reference,
-        amount: total,
+        public_key: pk, tx_ref: order.reference, amount: total,
         currency: CN.currency || "KES",
         payment_options: "card,mpesa,mobilemoneyghana",
         customer: { email: buyer.email, phone_number: buyer.phone, name: buyer.name },
@@ -275,17 +459,11 @@
     }
 
     const handler = window.PaystackPop.setup({
-      key: pk,
-      email: buyer.email,
-      amount: Math.round(total * 100),
-      currency: CN.currency || "KES",
-      ref: order.reference,
-      metadata: {
-        custom_fields: [
-          { display_name: "Event", variable_name: "event", value: ev.name },
-          { display_name: "Buyer phone", variable_name: "phone", value: buyer.phone }
-        ]
-      },
+      key: pk, email: buyer.email, amount: Math.round(total * 100),
+      currency: CN.currency || "KES", ref: order.reference,
+      metadata: { custom_fields: [
+        { display_name: "Event", variable_name: "event", value: ev.name },
+        { display_name: "Buyer phone", variable_name: "phone", value: buyer.phone } ] },
       callback: (resp) => finish(order.reference, "paystack", resp.reference),
       onClose: () => { btn.disabled = false; btn.textContent = "Pay " + CN.amount(total); }
     });
@@ -302,6 +480,9 @@
     } catch (e) {
       console.error(e);
     }
-    window.location.href = "ticket.html?ref=" + encodeURIComponent(reference);
+    // paid=1 tells the ticket page to wait for the payment webhook rather than
+    // telling the buyer their order is unpaid. The ticket is still only created
+    // server-side, once the provider confirms.
+    window.location.href = "ticket.html?ref=" + encodeURIComponent(reference) + "&paid=1";
   }
 })();
