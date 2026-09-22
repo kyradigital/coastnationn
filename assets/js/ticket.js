@@ -91,7 +91,7 @@
         .map(
           (t, i) => `
         <div class="ticket-stub">
-          <div class="qr"><canvas data-qr="${CN.esc(t.code)}"></canvas></div>
+          <div class="qr" data-qr="${CN.esc(t.code)}"></div>
           <div style="flex:1;min-width:180px">
             <div class="small muted">Ticket ${i + 1} of ${o.tickets.length}</div>
             <div style="font-weight:600;font-size:1.05rem">${CN.esc(t.type)}</div>
@@ -101,9 +101,40 @@
         </div>`
         )
         .join("");
-      CN.$$("canvas[data-qr]").forEach((c) =>
-        window.QRCode.toCanvas(c, c.dataset.qr, { width: 118, margin: 1, color: { dark: "#0b1620", light: "#ffffff" } })
-      );
+      CN.$$("[data-qr]").forEach((box) => drawQR(box, box.dataset.qr));
+    }
+  }
+
+  /* ---------- QR drawing (self-hosted encoder, SVG output) ---------- */
+  function drawQR(box, text) {
+    try {
+      if (typeof qrcode !== "function") throw new Error("QR library missing");
+      const qr = qrcode(0, "M");          // 0 = pick the smallest size that fits
+      qr.addData(String(text));
+      qr.make();
+
+      const n = qr.getModuleCount();
+      const quiet = 2;                    // quiet zone, in modules
+      const size = n + quiet * 2;
+      let cells = "";
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (qr.isDark(r, c)) cells += `M${c + quiet},${r + quiet}h1v1h-1z`;
+        }
+      }
+      box.innerHTML =
+        `<svg viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges" role="img" aria-label="Ticket QR code ${CN.esc(text)}">` +
+        `<rect width="${size}" height="${size}" fill="#ffffff"/>` +
+        `<path d="${cells}" fill="#0b1620"/></svg>`;
+    } catch (e) {
+      // Never leave the buyer with a blank box — the code still gets them in.
+      console.error("QR render failed:", e);
+      box.classList.add("qr-fallback");
+      box.innerHTML =
+        `<div class="qr-fallback-inner">
+           <div class="small">Show this code at the gate</div>
+           <b>${CN.esc(text)}</b>
+         </div>`;
     }
   }
 })();

@@ -325,6 +325,7 @@
               <div class="row-actions">
               ${o.status === "pending" ? `<button class="btn btn-primary btn-sm" data-act="mark-paid" data-o="${o.id}">Mark paid</button>` : ""}
               ${o.status !== "cancelled" ? `<button class="btn btn-soft btn-sm" data-act="cancel-order" data-o="${o.id}">Cancel</button>` : ""}
+              ${o.status === "paid" && cache.settings.telegram_chat_id ? `<button class="btn btn-soft btn-sm" data-act="tg-resend" data-o="${o.id}" title="Send this sale to Telegram again">Re-alert</button>` : ""}
               <button class="btn btn-danger btn-sm" data-act="del-order" data-o="${o.id}" title="Delete this purchase for good">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>
               </button>
@@ -470,7 +471,7 @@
     return `
       <div class="admin-head">
         <div><h1 style="font-size:1.8rem;margin:0">Settings</h1>
-          <p class="muted small" style="margin:4px 0 0">Branding, payments and your access PIN.</p></div>
+          <p class="muted small" style="margin:4px 0 0">Branding, payments, phone alerts and your access PIN.</p></div>
       </div>
 
       <div class="panel" style="max-width:640px">
@@ -515,6 +516,34 @@
         <p class="small" style="margin-top:12px">${s.paystack_public_key || s.flutterwave_public_key
           ? `<span class="badge ok">Live</span> <span class="muted">A payment key is set — customers pay online and get their QR instantly.</span>`
           : `<span class="badge warn">Not set</span> <span class="muted">Purchases are saved as <b>pending</b> and customers are told to pay you on WhatsApp; you release their tickets with <b>Mark paid</b> under Purchases.</span>`}</p>
+      </div>
+
+      <div class="panel" style="max-width:640px">
+        <h3>Sale alerts on your phone</h3>
+        <p class="small muted">Get a Telegram message the second anyone pays — works with your phone in your pocket.</p>
+
+        <ol class="setup-steps small">
+          <li>In Telegram, open <b>@BotFather</b> → send <b>/newbot</b> → pick any name. He replies with a token that looks like <code>8123456789:AAH...</code>. Paste it below and save.</li>
+          <li>Open your new bot and send it any message (just "hi").</li>
+          <li>Press <b>Find my chat ID</b>, then <b>Send test message</b>.</li>
+        </ol>
+
+        <div class="field"><label>Bot token</label>
+          <input data-set="telegram_bot_token" type="password" placeholder="8123456789:AAH…" value="${val("telegram_bot_token")}"></div>
+        <div class="field"><label>Chat ID</label>
+          <input data-set="telegram_chat_id" id="tgChat" placeholder="press “Find my chat ID”" value="${val("telegram_chat_id")}"></div>
+        <label class="checkbox" style="margin-bottom:16px">
+          <input type="checkbox" data-set-bool="telegram_enabled" ${s.telegram_enabled !== "false" ? "checked" : ""}> Alerts on</label>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" data-act="save-settings">Save</button>
+          <button class="btn btn-soft" data-act="tg-find">Find my chat ID</button>
+          <button class="btn btn-ghost" data-act="tg-test">Send test message</button>
+        </div>
+        <div id="tgOut" class="small" style="margin-top:12px"></div>
+        <p class="small muted" style="margin-top:12px">${s.telegram_bot_token && s.telegram_chat_id
+          ? `<span class="badge ok">Connected</span> <span class="muted">Every paid purchase pings your phone.</span>`
+          : `<span class="badge warn">Not set up</span> <span class="muted">Follow the three steps above — takes about two minutes.</span>`}</p>
       </div>
 
       <div class="panel" style="max-width:640px">
@@ -903,11 +932,22 @@
         if (cache.analytics) await loadAnalytics();
         return render();
       }
+      if (act === "tg-resend") {
+        await CN.rpc("admin_telegram_resend", { p_pin: PIN, p_order_id: d.o });
+        return CN.toast("Sent to Telegram.", "ok");
+      }
       if (act === "export") return exportCsv();
       if (act === "scan") return doScan(true);
       if (act === "peek") return doScan(false);
       if (act === "camera") return startCamera();
       if (act === "save-settings") return saveSettings();
+      if (act === "tg-find") return telegramFind();
+      if (act === "tg-pick") {
+        $("#tgChat").value = d.chat;
+        await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: "telegram_chat_id", p_value: String(d.chat) });
+        return tgSay("Saved. Now send a test message.", "ok");
+      }
+      if (act === "tg-test") return telegramTest();
       if (act === "change-pin") return changePin();
     } catch (e) {
       CN.toast(e.message, "err");
@@ -986,12 +1026,65 @@
     }
   }
 
+
+  /* ---------- telegram ---------- */
+  function tgSay(html, kind) {
+    const out = $("#tgOut");
+    if (out) out.innerHTML = `<span class="badge ${kind}">${kind === "ok" ? "Done" : kind === "warn" ? "Wait" : "Problem"}</span> ${html}`;
+  }
+
+  async function telegramFind() {
+    tgSay("Asking Telegram…", "warn");
+    try {
+      // save whatever token is in the box first, so the lookup uses it
+      const tok = $('[data-set="telegram_bot_token"]');
+      if (tok && tok.value.trim()) {
+        await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: "telegram_bot_token", p_value: tok.value.trim() });
+      }
+      const r = await CN.rpc("admin_telegram_find_chat", { p_pin: PIN });
+      if (!r.ok) return tgSay(esc(r.message), "bad");
+      const chats = r.chats || [];
+      if (chats.length === 1) {
+        $("#tgChat").value = chats[0].chat_id;
+        await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: "telegram_chat_id", p_value: String(chats[0].chat_id) });
+        cache.settings.telegram_chat_id = String(chats[0].chat_id);
+        return tgSay(`Found <b>${esc(chats[0].name || "your chat")}</b> and saved it. Now send a test message.`, "ok");
+      }
+      tgSay("Several chats found — pick one: " + chats.map((c) =>
+        `<button class="btn btn-soft btn-sm" data-act="tg-pick" data-chat="${esc(c.chat_id)}">${esc(c.name || c.chat_id)}</button>`).join(" "), "warn");
+      wire();
+    } catch (e) { tgSay(esc(e.message), "bad"); }
+  }
+
+  async function telegramTest() {
+    tgSay("Sending…", "warn");
+    try {
+      // make sure what is on screen is what we test with
+      for (const k of ["telegram_bot_token", "telegram_chat_id"]) {
+        const el = $(`[data-set="${k}"]`);
+        if (el) await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: k, p_value: el.value.trim() });
+      }
+      const r = await CN.rpc("admin_telegram_test", { p_pin: PIN });
+      if (r.ok) {
+        await refresh();
+        render();                       // so the "Connected" badge updates
+        tgSay(esc(r.message), "ok");
+      } else {
+        tgSay(esc(r.message), "bad");
+      }
+    } catch (e) { tgSay(esc(e.message), "bad"); }
+  }
+
   /* ---------- settings ---------- */
   async function saveSettings() {
     const inputs = $$("[data-set]");
+    const toggles = $$("[data-set-bool]");
     try {
       for (const el of inputs) {
         await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: el.dataset.set, p_value: el.value.trim() });
+      }
+      for (const el of toggles) {
+        await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: el.dataset.setBool, p_value: el.checked ? "true" : "false" });
       }
       CN.toast("Settings saved.", "ok");
       CN.forgetSettings();
