@@ -125,12 +125,17 @@
     if (tab === "analytics") drawAnalytics();
   }
 
+  /* A checkout that was never paid for isn't a purchase — it's someone who
+     walked away. Those are never listed; only real, settled purchases are.
+     (The counts in the delete panel still mention them, so they can be cleared.) */
+  const settled = (rows) => (rows || []).filter((o) => o.status !== "pending");
+
   /* ==========================================================
      DASHBOARD
      ========================================================== */
   function viewDash() {
     const s = cache.stats || {};
-    const recent = (cache.orders || []).slice(0, 8);
+    const recent = settled(cache.orders).slice(0, 8);
     return `
       <div class="admin-head">
         <div>
@@ -275,7 +280,7 @@
           <button class="btn btn-soft" data-act="export"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4"/><path d="M5 19h14"/></svg> Export CSV</button>
         </div>
       </div>
-      <div id="ordersBox">${cache.orders.length ? ordersTable(cache.orders) : `<div class="empty"><h3>No purchases yet</h3><p class="small">They'll show up here the moment someone buys.</p></div>`}</div>
+      <div id="ordersBox">${settled(cache.orders).length ? ordersTable(settled(cache.orders)) : `<div class="empty"><h3>No purchases yet</h3><p class="small">They'll show up here the moment someone buys.</p></div>`}</div>
 
       ${cache.orders.length ? `
       <div class="panel danger-zone" style="margin-top:22px">
@@ -857,8 +862,8 @@
         clearTimeout(t);
         t = setTimeout(async () => {
           orderSearch = os.value.trim();
-          const rows = await CN.rpc("admin_orders", { p_pin: PIN, p_event_id: $("#orderFilter")?.value || null, p_limit: 300, p_search: orderSearch || null });
-          $("#ordersBox").innerHTML = (rows || []).length
+          const rows = settled(await CN.rpc("admin_orders", { p_pin: PIN, p_event_id: $("#orderFilter")?.value || null, p_limit: 300, p_search: orderSearch || null }));
+          $("#ordersBox").innerHTML = rows.length
             ? ordersTable(rows)
             : `<div class="empty"><h3>Nothing matches “${esc(orderSearch)}”</h3><p class="small">Try part of a name, an email, a phone number, a reference or a ticket ID.</p></div>`;
           wire();
@@ -871,7 +876,7 @@
     const of = $("#orderFilter");
     if (of) of.onchange = () => {
       const id = of.value;
-      const rows = id ? cache.orders.filter((o) => o.event_id === id) : cache.orders;
+      const rows = settled(id ? cache.orders.filter((o) => o.event_id === id) : cache.orders);
       $("#ordersBox").innerHTML = rows.length ? ordersTable(rows) : `<div class="empty"><h3>No purchases for that event yet</h3></div>`;
       wire();
     };
@@ -1049,7 +1054,7 @@
   /* ---------- CSV ---------- */
   function exportCsv() {
     const rows = [["Reference", "Buyer", "Email", "Phone", "Event", "Tickets", "Amount", "Status", "Created"]];
-    cache.orders.forEach((o) =>
+    settled(cache.orders).forEach((o) =>
       rows.push([
         o.reference, o.buyer_name, o.buyer_email, o.buyer_phone, o.event_name,
         (o.items || []).map((i) => `${i.name} x${i.quantity}`).join(" | "),
