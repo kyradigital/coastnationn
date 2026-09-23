@@ -179,6 +179,8 @@
         <div class="stat"><div class="k">Scanned in</div><div class="v">${s.tickets_used ?? 0}</div></div>
       </div>
 
+      ${!isOwner() ? `<div class="panel" id="tgPanel" style="margin-bottom:18px"></div>` : ""}
+
       ${!cache.events.length ? `
         <div class="empty">
           <h3>No events yet</h3>
@@ -880,6 +882,7 @@
      ========================================================== */
   function wire() {
     $$("[data-act]").forEach((el) => (el.onclick = () => handle(el.dataset.act, el.dataset)));
+    if ($("#tgPanel")) tgPanel();
 
     const os = $("#orderSearch");
     if (os) {
@@ -946,6 +949,87 @@
     };
   }
 
+  /* ==========================================================
+     SALE ALERTS ON YOUR PHONE  (staff link their own Telegram)
+
+     They never see the bot token. They send a one-time word to the bot and
+     the server matches it against Telegram's own inbox.
+     ========================================================== */
+  const TG_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6c5" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 4.3 2.8 11.4c-.9.3-.9 1.6 0 1.9l4.6 1.5 1.8 5.3c.3.8 1.3 1 1.9.4l2.5-2.5 4.6 3.4c.7.5 1.7.1 1.9-.7L22.9 5.5c.2-.9-.6-1.5-1.4-1.2z"/><path d="M7.4 14.8 18.6 7.2l-8.1 8.2-.2 3.6"/></svg>';
+
+  let lastTgCode = null;
+
+  async function tgPanel(state) {
+    const box = $("#tgPanel");
+    if (!box) return;
+    if (!state && lastTgCode) state = lastTgCode;   // don't lose a code mid-setup
+    if (!state) {
+      box.innerHTML = `<div class="center"><span class="spinner"></span></div>`;
+      try { state = await CN.rpc("staff_telegram", { p_pin: PIN, p_action: "status" }); }
+      catch (e) { box.innerHTML = `<p class="small muted" style="margin:0">Couldn't check your alerts: ${esc(e.message)}</p>`; return; }
+    }
+
+    const head = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        ${TG_ICON}<h3 style="margin:0">Sale alerts on your phone</h3></div>`;
+
+    if (state.state === "no_bot") {
+      box.innerHTML = head + `<p class="small muted" style="margin:0">${esc(state.message)}</p>`;
+      return;
+    }
+
+    if (state.linked) {
+      box.innerHTML = head + `
+        <p class="small" style="margin:0 0 12px">
+          <span class="badge ok">On</span>
+          <span class="muted"> — Telegram will buzz the moment someone pays.</span></p>
+        <button class="btn btn-soft btn-sm" data-act="tg-off">Turn off on this phone</button>`;
+      wireTg();
+      return;
+    }
+
+    if (state.code) {
+      const bot = state.bot ? "@" + state.bot : "the Coast Nation bot";
+      box.innerHTML = head + `
+        <p class="small muted" style="margin:0 0 14px">Two steps and your phone buzzes on every sale.</p>
+        <ol class="setup-steps">
+          <li>Open Telegram and search for <b>${esc(bot)}</b>${state.bot ? ` — or tap
+              <a href="https://t.me/${esc(state.bot)}" target="_blank" rel="noopener" style="color:var(--teal)">this link</a>` : ""}. Press <b>Start</b>.</li>
+          <li>Send it this exact code:
+            <div class="ticket-code" style="display:inline-block;margin-top:6px;font-size:1.05rem;letter-spacing:.08em">${esc(state.code)}</div>
+          </li>
+        </ol>
+        <button class="btn btn-primary btn-sm" data-act="tg-confirm" style="margin-top:6px">I've sent it — connect me</button>
+        <p class="small muted" style="margin:10px 0 0">The code works for 15 minutes.</p>`;
+      wireTg();
+      return;
+    }
+
+    box.innerHTML = head + `
+      <p class="small muted" style="margin:0 0 12px">Get a buzz the second someone buys a ticket — even with your screen off.</p>
+      <button class="btn btn-primary btn-sm" data-act="tg-connect">Connect my phone</button>`;
+    wireTg();
+  }
+
+  function wireTg() {
+    $$("#tgPanel [data-act]").forEach((el) => (el.onclick = () => handle(el.dataset.act, el.dataset)));
+  }
+
+  async function tgAction(action, busyEl) {
+    if (busyEl) { busyEl.disabled = true; busyEl.innerHTML = '<span class="spinner"></span>'; }
+    try {
+      const r = await CN.rpc("staff_telegram", { p_pin: PIN, p_action: action });
+      if (r.message) CN.toast(r.message, r.ok ? "ok" : "warn");
+      if (action === "code") { lastTgCode = r; return tgPanel(r); }
+      // a failed confirm keeps the code on screen so they can send it and retry
+      if (action === "link" && !r.ok) return tgPanel(lastTgCode);
+      lastTgCode = null;
+      return tgPanel();
+    } catch (e) {
+      CN.toast(e.message, "err");
+      return tgPanel();
+    }
+  }
+
   async function saveLogo(url) {
     await CN.rpc("admin_save_setting", { p_pin: PIN, p_key: "site_logo_url", p_value: url });
     cache.settings.site_logo_url = url;
@@ -962,6 +1046,9 @@
       if (act === "go-analytics") return goTab("analytics");
       if (act === "withdraw")
         return CN.toast("Withdrawals can only be made 24 hours after the event.", "warn");
+      if (act === "tg-connect") return tgAction("code", $('[data-act="tg-connect"]'));
+      if (act === "tg-confirm") return tgAction("link", $('[data-act="tg-confirm"]'));
+      if (act === "tg-off")     return tgAction("unlink", $('[data-act="tg-off"]'));
       if (act === "range") {
         analyticsDays = Number(d.days) || 30;
         await loadAnalytics();
