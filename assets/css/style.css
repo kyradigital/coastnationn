@@ -350,6 +350,46 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 .stat .v{font-family:'Sora',sans-serif;font-size:clamp(1.25rem,2.1vw,1.7rem);font-weight:700;margin-top:4px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat.accent .v{color:var(--coral)}
 .stat.teal .v{color:var(--teal)}
+.stat.loss .v{color:var(--danger)}
+
+/* ---------- expected results (the ledger) ---------- */
+.ledger-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.ledger-side{border-top:2px solid transparent}
+.ledger-side.income{border-top-color:rgba(46,230,197,.55)}
+.ledger-side.expense{border-top-color:rgba(255,95,109,.5)}
+.amt-in{color:var(--teal)}
+.amt-out{color:var(--danger)}
+
+.cat-chips{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 14px}
+.cat-chips .chip{
+  display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);
+  border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:.78rem;
+}
+.cat-chips .chip b{font-size:.78rem}
+
+.ledger-row{
+  display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);
+}
+.ledger-row:first-of-type{border-top:none}
+.ledger-row .row-actions{min-width:0}
+
+.icon-btn{
+  background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted);
+  border-radius:9px;padding:6px 7px;cursor:pointer;display:inline-flex;line-height:0;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.icon-btn:hover{color:var(--text);border-color:var(--line-strong);background:rgba(255,255,255,.07)}
+.icon-btn.danger:hover{color:var(--danger);border-color:rgba(255,95,109,.5)}
+
+.ledger-bottom{
+  margin-top:20px;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;
+}
+.ledger-bottom.good{border-color:rgba(46,230,197,.4);background:rgba(46,230,197,.06)}
+.ledger-bottom.bad{border-color:rgba(255,95,109,.4);background:rgba(255,95,109,.06)}
+.ledger-sum{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-family:'Sora',sans-serif}
+.ledger-sum .op{color:var(--muted);font-weight:600}
+.ledger-sum b{font-size:1.35rem;letter-spacing:-.02em}
 
 /* ---------- charts ---------- */
 .chart-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));margin-bottom:16px}
