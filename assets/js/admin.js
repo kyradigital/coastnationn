@@ -105,6 +105,10 @@
         await loadAnalytics();
         render();
       }
+      if (tab === "ledger") {
+        await loadLedger();
+        render();
+      }
     })
   );
 
@@ -140,6 +144,7 @@
     if (tab === "events") main.innerHTML = viewEvents();
     if (tab === "orders") main.innerHTML = viewOrders();
     if (tab === "analytics") main.innerHTML = viewAnalytics();
+    if (tab === "ledger") main.innerHTML = viewLedger();
     if (tab === "checkin") main.innerHTML = viewCheckin();
     if (tab === "settings") main.innerHTML = viewSettings();
     wire();
@@ -485,6 +490,221 @@
     } catch (e) {
       CN.toast(e.message, "err");
     }
+  }
+
+  /* ==========================================================
+     EXPECTED RESULTS — a two-sided ledger per event
+
+     Money you expect in, money you expect out, and what's left. Nothing here
+     is automatic: these are your own figures, so you can plan an event before
+     a single ticket sells. The real takings are shown beside them so you can
+     see how the guess is holding up.
+     ========================================================== */
+  const INCOME_CATS  = ["Ticket sales", "Sponsor", "Bar", "Merchandise", "Stalls", "Other"];
+  const EXPENSE_CATS = ["Venue", "Artists / DJs", "Sound & lights", "Security", "Marketing",
+                        "Staff", "Drinks stock", "Licensing", "Transport", "Other"];
+  let ledgerEvent = "";           // "" = everything
+
+  function viewLedger() {
+    const L = cache.ledger;
+    if (!L) return `<div class="admin-head"><div><h1 style="font-size:1.8rem;margin:0">Expected results</h1></div></div>
+      <div class="panel center"><span class="spinner"></span> Adding up…</div>`;
+
+    const inc = (L.entries || []).filter((e) => e.kind === "income");
+    const exp = (L.entries || []).filter((e) => e.kind === "expense");
+    const profit = Number(L.profit || 0);
+    const evName = ledgerEvent ? (cache.events.find((e) => e.id === ledgerEvent) || {}).name : null;
+
+    return `
+      <div class="admin-head">
+        <div>
+          <h1 style="font-size:1.8rem;margin:0">Expected results</h1>
+          <p class="muted small" style="margin:4px 0 0">
+            ${evName ? esc(evName) : "Across everything"} — what you expect to make, what you expect to spend.</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <select id="ledgerFilter" style="width:auto">
+            <option value="">All events</option>
+            ${cache.events.map((e) => `<option value="${e.id}" ${e.id === ledgerEvent ? "selected" : ""}>${esc(e.name)}</option>`).join("")}
+          </select>
+          <button class="btn btn-soft" data-act="ledger-add" data-kind="expense">− Add expense</button>
+          <button class="btn btn-primary" data-act="ledger-add" data-kind="income">+ Add income</button>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat teal"><div class="k">Expected income</div><div class="v">${esc(CN.amount(L.income))}</div></div>
+        <div class="stat"><div class="k">Expected expenses</div><div class="v">${esc(CN.amount(L.expense))}</div></div>
+        <div class="stat ${profit < 0 ? "loss" : "accent"}">
+          <div class="k">${profit < 0 ? "Expected loss" : "Expected profit"}</div>
+          <div class="v">${esc(CN.amount(Math.abs(profit)))}</div>
+        </div>
+        <div class="stat"><div class="k">Actually taken so far</div>
+          <div class="v">${esc(CN.amount(L.actual_ticket_revenue))}</div>
+          <div class="small muted" style="margin-top:2px">paid tickets</div></div>
+      </div>
+
+      ${!(L.entries || []).length ? `
+        <div class="empty">
+          <h3>Nothing in the ledger yet</h3>
+          <p class="small">Put in what you expect to earn — ticket sales, a sponsor — and what it will cost you.
+            The difference is your profit.</p>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px">
+            <button class="btn btn-primary" data-act="ledger-add" data-kind="income">+ Add income</button>
+            <button class="btn btn-soft" data-act="ledger-add" data-kind="expense">− Add expense</button>
+          </div>
+        </div>` : `
+        <div class="ledger-grid">
+          ${ledgerSide("income", inc, L.by_category)}
+          ${ledgerSide("expense", exp, L.by_category)}
+        </div>
+
+        <div class="panel ledger-bottom ${profit < 0 ? "bad" : "good"}">
+          <div>
+            <div class="small muted">${evName ? esc(evName) : "All events"}</div>
+            <b style="font-size:1.05rem">${profit < 0 ? "You're expecting a loss" : "You're expecting to clear"}</b>
+          </div>
+          <div class="ledger-sum">
+            <span>${esc(CN.amount(L.income))}</span>
+            <span class="op">−</span>
+            <span>${esc(CN.amount(L.expense))}</span>
+            <span class="op">=</span>
+            <b>${esc(CN.amount(Math.abs(profit)))}</b>
+          </div>
+        </div>`}`;
+  }
+
+  function ledgerSide(kind, rows, byCat) {
+    const isInc = kind === "income";
+    const cats = (byCat || []).filter((c) => c.kind === kind);
+    const total = rows.reduce((n, r) => n + Number(r.amount), 0);
+
+    return `
+      <div class="panel ledger-side ${kind}">
+        <div class="panel-head">
+          <h3 style="margin:0">${isInc ? "Money in" : "Money out"}</h3>
+          <b class="${isInc ? "amt-in" : "amt-out"}">${esc(CN.amount(total))}</b>
+        </div>
+
+        ${cats.length > 1 ? `<div class="cat-chips">${cats
+          .map((c) => `<span class="chip"><span>${esc(c.category)}</span><b>${esc(CN.amount(c.total))}</b></span>`)
+          .join("")}</div>` : ""}
+
+        ${rows.length ? rows.map((r) => `
+          <div class="ledger-row">
+            <div style="min-width:0;flex:1">
+              <div style="font-weight:600">${esc(r.category)}</div>
+              <div class="small muted">
+                ${r.note ? esc(r.note) + " · " : ""}${esc(CN.prettyDate(r.entry_date))}${!ledgerEvent && r.event_name ? " · " + esc(r.event_name) : ""}
+              </div>
+            </div>
+            <b class="${isInc ? "amt-in" : "amt-out"}" style="white-space:nowrap">${isInc ? "" : "−"}${esc(CN.amount(r.amount))}</b>
+            <div class="row-actions">
+              <button class="icon-btn" data-act="ledger-edit" data-id="${r.id}" title="Edit">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
+              <button class="icon-btn danger" data-act="ledger-del" data-id="${r.id}" title="Remove">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13"/></svg></button>
+            </div>
+          </div>`).join("") : `<p class="muted small" style="margin:0">Nothing yet.</p>`}
+
+        <button class="btn btn-soft btn-sm btn-block" data-act="ledger-add" data-kind="${kind}" style="margin-top:14px">
+          ${isInc ? "+ Add income" : "− Add expense"}</button>
+      </div>`;
+  }
+
+  async function loadLedger() {
+    cache.ledger = await CN.rpc("admin_ledger", { p_pin: PIN, p_event_id: ledgerEvent || null });
+  }
+
+  function ledgerModal(entry, kind) {
+    const e = entry || { kind, amount: "", category: "", note: "", entry_date: new Date().toISOString().slice(0, 10) };
+    const isInc = e.kind === "income";
+    const cats = isInc ? INCOME_CATS : EXPENSE_CATS;
+    const known = cats.includes(e.category);
+
+    $("#modalHost").innerHTML = `
+      <div class="modal-backdrop" id="backdrop">
+        <div class="modal" style="max-width:480px">
+          <div class="modal-head">
+            <h3 style="margin:0">${entry ? "Edit" : isInc ? "Add income" : "Add expense"}</h3>
+            <button class="x-btn" data-close>&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="field">
+              <label>What is it?</label>
+              <select id="lCat">
+                ${cats.map((c) => `<option ${c === e.category ? "selected" : ""}>${esc(c)}</option>`).join("")}
+                <option value="__other" ${e.category && !known ? "selected" : ""}>Something else…</option>
+              </select>
+            </div>
+            <div class="field" id="lCustomWrap" style="${e.category && !known ? "" : "display:none"}">
+              <label>Name it</label>
+              <input id="lCustom" value="${known ? "" : esc(e.category || "")}" placeholder="e.g. Generator hire">
+            </div>
+            <div class="field">
+              <label>Amount (${esc(CN.currency || "KES")})</label>
+              <input id="lAmt" inputmode="decimal" value="${e.amount === "" ? "" : esc(String(e.amount))}" placeholder="0">
+            </div>
+            <div class="field">
+              <label>Event</label>
+              <select id="lEvent">
+                <option value="">Not tied to an event</option>
+                ${cache.events.map((x) => `<option value="${x.id}" ${x.id === (e.event_id || ledgerEvent) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field"><label>Date</label>
+              <input id="lDate" type="date" value="${esc(e.entry_date || "")}"></div>
+            <div class="field"><label>Note <span class="muted small">(optional)</span></label>
+              <input id="lNote" value="${esc(e.note || "")}" placeholder="Who, or what for"></div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-soft" data-close>Cancel</button>
+            <button class="btn btn-primary" id="lSave">${entry ? "Save changes" : isInc ? "Add income" : "Add expense"}</button>
+          </div>
+        </div>
+      </div>`;
+
+    const close = () => ($("#modalHost").innerHTML = "");
+    $$("[data-close]").forEach((b) => (b.onclick = close));
+    $("#backdrop").addEventListener("click", (ev) => { if (ev.target.id === "backdrop") close(); });
+
+    $("#lCat").onchange = () => {
+      const other = $("#lCat").value === "__other";
+      $("#lCustomWrap").style.display = other ? "" : "none";
+      if (other) $("#lCustom").focus();
+    };
+
+    $("#lSave").onclick = async () => {
+      const cat = $("#lCat").value === "__other" ? $("#lCustom").value.trim() : $("#lCat").value;
+      const amt = Number(String($("#lAmt").value).replace(/[^\d.]/g, ""));
+      if (!cat) return CN.toast("Give it a name.", "err");
+      if (!amt || amt <= 0) return CN.toast("Put in an amount.", "err");
+
+      const btn = $("#lSave");
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      try {
+        await CN.rpc("admin_save_ledger", {
+          p_pin: PIN,
+          p_entry: {
+            id: entry ? entry.id : null,
+            event_id: $("#lEvent").value || null,
+            kind: e.kind,
+            category: cat,
+            note: $("#lNote").value.trim(),
+            amount: amt,
+            entry_date: $("#lDate").value || null
+          }
+        });
+        close();
+        await loadLedger();
+        render();
+        CN.toast(entry ? "Updated." : e.kind === "income" ? "Income added." : "Expense added.", "ok");
+      } catch (err) {
+        btn.disabled = false; btn.textContent = "Try again";
+        CN.toast(err.message, "err");
+      }
+    };
+    $("#lAmt").focus();
   }
 
   /* ==========================================================
@@ -884,6 +1104,15 @@
     $$("[data-act]").forEach((el) => (el.onclick = () => handle(el.dataset.act, el.dataset)));
     if ($("#tgPanel")) tgPanel();
 
+    const lf = $("#ledgerFilter");
+    if (lf) lf.onchange = async () => {
+      ledgerEvent = lf.value;
+      cache.ledger = null;
+      render();
+      await loadLedger();
+      render();
+    };
+
     const os = $("#orderSearch");
     if (os) {
       let t;
@@ -1046,6 +1275,17 @@
       if (act === "go-analytics") return goTab("analytics");
       if (act === "withdraw")
         return CN.toast("Withdrawals can only be made 24 hours after the event.", "warn");
+      if (act === "ledger-add") return ledgerModal(null, d.kind);
+      if (act === "ledger-edit")
+        return ledgerModal((cache.ledger.entries || []).find((x) => x.id === d.id));
+      if (act === "ledger-del") {
+        const row = (cache.ledger.entries || []).find((x) => x.id === d.id);
+        if (!confirm(`Remove ${row ? row.category + " — " + CN.amount(row.amount) : "this line"}?`)) return;
+        await CN.rpc("admin_delete_ledger", { p_pin: PIN, p_id: d.id });
+        await loadLedger();
+        render();
+        return CN.toast("Removed.", "ok");
+      }
       if (act === "tg-connect") return tgAction("code", $('[data-act="tg-connect"]'));
       if (act === "tg-confirm") return tgAction("link", $('[data-act="tg-confirm"]'));
       if (act === "tg-off")     return tgAction("unlink", $('[data-act="tg-off"]'));
