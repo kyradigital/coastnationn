@@ -295,6 +295,10 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 #toast.show{transform:translateX(-50%) translateY(0)}
 #toast.err{border-color:rgba(255,95,109,.5)}
 #toast.ok{border-color:rgba(61,220,151,.5)}
+#toast.warn{border-color:rgba(255,200,87,.55)}
+
+/* the Settings door — hidden from a staff account */
+.side-nav button.hidden{display:none}
 
 /* ---------- modal ---------- */
 .modal-backdrop{
