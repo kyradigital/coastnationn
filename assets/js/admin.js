@@ -7,6 +7,13 @@
   let tab = "dash";
   let cache = { events: [], orders: [], stats: {}, settings: {} };
 
+  /* Who's logged in. "staff" is a second account that runs the events but never
+     sees a payment key, an email key or a PIN — the database enforces that, this
+     only keeps the buttons out of their way. */
+  let role = sessionStorage.getItem("cn_role") || "owner";
+  let who = sessionStorage.getItem("cn_who") || "";
+  const isOwner = () => role === "owner";
+
   /* ==========================================================
      PIN SCREEN
      ========================================================== */
@@ -26,10 +33,18 @@
   pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryLogin(); });
   $("#pinGo").addEventListener("click", () => tryLogin(false));
   $("#lockBtn").addEventListener("click", () => {
-    sessionStorage.removeItem("cn_pin");
-    sessionStorage.removeItem("cn_door");
+    ["cn_pin", "cn_door", "cn_role", "cn_who"].forEach((k) => sessionStorage.removeItem(k));
     location.href = "index.html";
   });
+
+  /* Staff never see the Settings door. (The lock is in the database — this just
+     stops them walking into a wall.) */
+  function applyRole() {
+    const set = $('#sideNav button[data-tab="settings"]');
+    if (set) set.classList.toggle("hidden", !isOwner());
+    const sub = $("#sideSub");
+    if (sub && !isOwner()) sub.textContent = who ? `Signed in as ${who}` : "Team access";
+  }
 
   function drawDots() {
     const n = Math.min(pinInput.value.length, 12);
@@ -47,7 +62,12 @@
       const res = await CN.rpc("admin_login", { p_pin: pin });
       if (res && res.ok) {
         PIN = pin;
+        role = res.role || "owner";
+        who = res.name || "";
         sessionStorage.setItem("cn_pin", pin);
+        sessionStorage.setItem("cn_role", role);
+        sessionStorage.setItem("cn_who", who);
+        applyRole();
         $("#pinScreen").classList.add("hidden");
         $("#shell").classList.remove("hidden");
         boot();
@@ -115,6 +135,7 @@
 
   function render() {
     const main = $("#main");
+    if (tab === "settings" && !isOwner()) tab = "dash";   // belt as well as braces
     if (tab === "dash") main.innerHTML = viewDash();
     if (tab === "events") main.innerHTML = viewEvents();
     if (tab === "orders") main.innerHTML = viewOrders();
@@ -139,10 +160,15 @@
     return `
       <div class="admin-head">
         <div>
-          <h1 style="font-size:1.8rem;margin:0">Dashboard</h1>
+          <h1 style="font-size:1.8rem;margin:0">${!isOwner() && who ? `Welcome back, ${esc(who)}` : "Dashboard"}</h1>
           <p class="muted small" style="margin:4px 0 0">Everything happening across Coast Nation.</p>
         </div>
-        <button class="btn btn-primary" data-act="new-event">+ Create event</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-soft" data-act="withdraw">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19"/><path d="M7 15h3"/></svg>
+            Withdraw balance</button>
+          <button class="btn btn-primary" data-act="new-event">+ Create event</button>
+        </div>
       </div>
 
       <div class="stat-grid">
@@ -934,6 +960,8 @@
       if (act === "edit-event") return eventModal(cache.events.find((e) => e.id === d.ev));
       if (act === "go-orders") return goTab("orders");
       if (act === "go-analytics") return goTab("analytics");
+      if (act === "withdraw")
+        return CN.toast("Withdrawals can only be made 24 hours after the event.", "warn");
       if (act === "range") {
         analyticsDays = Number(d.days) || 30;
         await loadAnalytics();
