@@ -30,12 +30,15 @@
         <p class="small muted" style="margin:18px 0 0">Reference <b class="ticket-code" style="font-size:.85rem">${CN.esc(reference.toUpperCase())}</b></p>
       </div>`;
 
+    let polls = 0;
     while (Date.now() < deadline) {
       let o = null;
       try {
         o = await CN.rpc("get_order", { p_reference: reference.toUpperCase() });
       } catch (e) { /* transient — try again */ }
       if (o && (o.status === "paid" || o.status === "cancelled")) return show(reference);
+      // Don't rely on the webhook alone: every ~9s ask the server to check with Paystack itself.
+      if (polls++ % 3 === 1) await checkWithGateway(reference);
       await new Promise((r) => setTimeout(r, 3000));
     }
 
@@ -70,11 +73,28 @@
     CN.$("#refIn").addEventListener("keydown", (e) => { if (e.key === "Enter") CN.$("#findBtn").click(); });
   }
 
+  /* Ask the server to confirm the payment with Paystack directly. Tickets are
+     still only issued server-side, and only if Paystack says the money cleared. */
+  async function checkWithGateway(reference) {
+    try {
+      const { data } = await CN.db.functions.invoke("paystack-verify", {
+        body: { reference: reference.toUpperCase() }
+      });
+      return !!(data && data.ok);
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function show(reference) {
     view.innerHTML = `<div class="panel center"><span class="spinner"></span> Loading your order…</div>`;
     let o;
     try {
       o = await CN.rpc("get_order", { p_reference: reference.toUpperCase() });
+      // A pending order may have been paid without the webhook landing — check before saying so.
+      if (o && o.status === "pending" && Number(o.total_amount) > 0 && await checkWithGateway(reference)) {
+        o = await CN.rpc("get_order", { p_reference: reference.toUpperCase() });
+      }
     } catch (e) {
       return lookupForm(e.message);
     }

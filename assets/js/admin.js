@@ -1430,7 +1430,7 @@
     const out = $("#scanOut");
     out.innerHTML = `<div class="scan-result"><span class="spinner"></span></div>`;
     try {
-      const r = await CN.rpc("admin_scan_ticket", { p_pin: PIN, p_code: code, p_mark_used: markUsed });
+      const r = await lookupTicket(code, markUsed);
       const ic = {
         check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.7 2.6L16 9.5"/></svg>',
         warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4M12 17.2v.1"/></svg>',
@@ -1457,6 +1457,30 @@
     } catch (e) {
       out.innerHTML = `<div class="scan-result bad"><div class="big">Error</div><div class="small">${esc(e.message)}</div></div>`;
     }
+  }
+
+  // Every ticket QR is a verify.html?t=<token> link; typed entries are the short CN… code.
+  // Links go through the token functions, codes through admin_scan_ticket.
+  function tokenFrom(text) {
+    const m = String(text).match(/[?&]t=([A-Za-z0-9_-]+)/);
+    if (m) return m[1];
+    return /^[A-Za-z0-9_-]{40,}$/.test(text) ? text : null;
+  }
+
+  async function lookupTicket(text, markUsed) {
+    const token = tokenFrom(text);
+    if (!token) return CN.rpc("admin_scan_ticket", { p_pin: PIN, p_code: text, p_mark_used: markUsed });
+
+    const v = await CN.rpc("verify_ticket", { p_token: token });
+    const base = v ? { code: v.code, buyer: v.holder, type: v.type, event: v.event, used_at: v.used_at } : {};
+    if (!v || v.result === "invalid") return { result: "not_found" };
+    if (v.result === "used") return { ...base, result: "already_used" };
+    if (v.result === "void") return { ...base, result: "void" };
+    if (!markUsed) return { ...base, result: "valid" };
+
+    const u = await CN.rpc("admin_use_ticket", { p_pin: PIN, p_token: token });
+    if (u.result === "used") return { ...base, result: "valid" };
+    return { ...base, result: u.result === "void" ? "void" : "not_found" };
   }
 
   let cam = null;
