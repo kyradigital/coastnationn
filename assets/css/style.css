@@ -25,6 +25,8 @@
 
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+/* no double-tap zoom on phones (fast PIN typing, quick taps at the gate); pinch-zoom still works */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 body{
   background:
     radial-gradient(1100px 600px at 12% -10%, rgba(46,230,197,.10), transparent 60%),
@@ -202,6 +204,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);ba
 input::placeholder,textarea::placeholder{color:#59707f}
 textarea{min-height:100px;resize:vertical}
 select option{background:var(--bg-2);color:var(--text)}
+/* iPhone zooms into any field under 16px when it's focused */
+@media (max-width:820px){input,select,textarea{font-size:16px}}
 .field{margin-bottom:16px}
 .field-row{display:grid;gap:14px;grid-template-columns:1fr 1fr}
 .field-row-3{display:grid;gap:14px;grid-template-columns:repeat(3,1fr)}
@@ -251,6 +255,10 @@ select option{background:var(--bg-2);color:var(--text)}
 .ticket-stub .qr svg{display:block;width:132px;height:132px}
 .ticket-stub .qr.qr-fallback{background:#fff;color:#0b1620;width:132px;height:132px;display:grid;place-items:center;text-align:center;padding:10px;line-height:1.3}
 .qr-fallback-inner b{display:block;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:.9rem;letter-spacing:.04em;margin-top:6px;word-break:break-all}
+.ticket-poster{width:64px;height:64px;border-radius:10px;object-fit:cover;flex:none;border:1px solid var(--line-strong);display:block}
+.ticket-poster.placeholder{display:grid;place-items:center;background:linear-gradient(135deg,#123044,#1d4a4a);font-family:Sora,sans-serif;font-weight:700;color:rgba(255,255,255,.4)}
+.ticket-head{display:flex;gap:12px;align-items:center;margin-bottom:6px}
+@media print{.ticket-poster{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 .ticket-code{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:1.05rem;letter-spacing:.08em;color:var(--sand)}
 
 /* ---------- badges ---------- */

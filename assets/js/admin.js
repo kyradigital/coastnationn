@@ -1451,7 +1451,8 @@
         ${r.type ? `<div class="small muted">${esc(r.type)} · ${esc(r.event || "")}</div>` : ""}
         ${note ? `<div class="small muted" style="margin-top:6px">${esc(note)}</div>` : ""}
       </div>`;
-      const inp = $("#scanCode"); if (inp) { inp.value = ""; inp.focus(); }
+      // with the camera running, focusing the box would pop the phone keyboard over the viewfinder
+      const inp = $("#scanCode"); if (inp) { inp.value = ""; if (!cam) inp.focus(); }
       if (navigator.vibrate) navigator.vibrate(r.result === "valid" ? 60 : [60, 60, 60]);
       if (r.result === "valid" && markUsed) await refresh();
     } catch (e) {
@@ -1491,10 +1492,18 @@
     box.innerHTML = `<div id="readerInner" style="max-width:340px;border-radius:14px;overflow:hidden"></div>`;
     cam = new window.Html5Qrcode("readerInner");
     try {
+      let busy = false;   // the decoder can fire again before pause() lands — one scan per QR
       await cam.start({ facingMode: "environment" }, { fps: 10, qrbox: 230 }, async (text) => {
-        await cam.pause(true);
-        await doScan(true, text);
-        setTimeout(() => cam && cam.resume(), 1400);
+        if (busy) return;
+        busy = true;
+        try { cam.pause(true); } catch (e) { /* already paused */ }
+        try { await doScan(true, text); }
+        finally {
+          setTimeout(() => {
+            try { cam && cam.resume(); } catch (e) { /* camera was stopped */ }
+            busy = false;
+          }, 1400);
+        }
       });
     } catch (e) {
       box.innerHTML = `<p class="small muted">Couldn't open the camera (${esc(e.message || e)}). Type the code instead.</p>`;

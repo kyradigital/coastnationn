@@ -150,14 +150,23 @@
 
     const stubs = CN.$("#stubs");
     if (paid && (o.tickets || []).length) {
+      const poster = o.event.image_url
+        ? `<img class="ticket-poster" src="${CN.esc(o.event.image_url)}" alt="" loading="lazy">`
+        : `<div class="ticket-poster placeholder">${CN.esc(CN.initials(o.event.name))}</div>`;
       stubs.innerHTML = o.tickets
         .map(
           (t, i) => `
         <div class="ticket-stub">
           <div class="qr" data-qr="${CN.esc(verifyUrl(t))}" data-code="${CN.esc(t.code)}"></div>
           <div style="flex:1;min-width:180px">
-            <div class="small muted">Ticket ${i + 1} of ${o.tickets.length}</div>
-            <div style="font-weight:600;font-size:1.05rem">${CN.esc(t.type)}</div>
+            <div class="ticket-head">
+              ${poster}
+              <div style="min-width:0">
+                <div class="small muted">Ticket ${i + 1} of ${o.tickets.length}</div>
+                <div style="font-weight:600;font-size:1.05rem">${CN.esc(t.type)}</div>
+                <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${CN.esc(o.event.name)}</div>
+              </div>
+            </div>
             <div class="ticket-code">${CN.esc(t.code)}</div>
             <div style="margin-top:6px"><span class="badge ${t.status === "used" ? "dim" : "ok"}">${t.status === "used" ? "Already scanned" : "Valid"}</span></div>
           </div>
