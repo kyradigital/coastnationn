@@ -620,3 +620,36 @@ figure.chart figcaption p{margin:0}
 .email-suffix{display:flex;align-items:stretch}
 .email-suffix input{border-top-right-radius:0;border-bottom-right-radius:0}
 .email-suffix span{display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);border-left:0;border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:var(--card-2);color:var(--muted);font-size:.9rem;white-space:nowrap}
+
+/* ---------- scan verdict: a bottom sheet the thumb can reach ---------- */
+.verdict{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:rgba(3,8,12,.55);padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.verdict-card{width:100%;max-width:560px;border-radius:22px;padding:22px 20px 18px;border:2px solid var(--line-strong);background:var(--card);box-shadow:0 -10px 40px rgba(0,0,0,.6);animation:verdictUp .16s ease-out}
+@keyframes verdictUp{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.verdict-card{animation:none}}
+.verdict.ok .verdict-card{background:#0d2a20;border-color:var(--ok)}
+.verdict.warn .verdict-card{background:#2d260f;border-color:var(--warn)}
+.verdict.bad .verdict-card{background:#2e1216;border-color:var(--danger)}
+.verdict-title{display:flex;align-items:center;gap:10px;font-family:'Sora',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.15;letter-spacing:-.01em}
+.verdict-title svg{width:30px;height:30px;flex:none}
+.verdict.ok .verdict-title{color:var(--ok)}
+.verdict.warn .verdict-title{color:var(--warn)}
+.verdict.bad .verdict-title{color:var(--danger)}
+.verdict-name{font-size:1.2rem;font-weight:700;margin-top:12px}
+.verdict-meta{color:var(--muted);font-size:.9rem;margin-top:2px}
+.verdict-meta .ticket-code{font-size:.85rem}
+.verdict-by{margin-top:10px;font-size:1rem}
+.verdict-help{margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.25);font-size:.92rem;line-height:1.5}
+.verdict-help ol{margin:8px 0;padding-left:20px}
+.verdict-help li{margin:3px 0}
+.verdict-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:18px}
+.verdict-btn{min-height:60px;font-size:1.1rem;font-weight:700;border-radius:16px;margin-top:16px}
+.verdict-actions .verdict-btn{margin-top:0}
+.verdict-accept{background:var(--ok);color:#04140d;border-color:var(--ok)}
+.verdict-reject{background:transparent;color:var(--danger);border:2px solid var(--danger)}
+.gate-closed{border-color:rgba(255,200,87,.4);background:rgba(255,200,87,.07);margin-bottom:18px}
+
+/* admin: gate switch */
+.gate-switch{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:22px;border-width:2px}
+.gate-switch.on{border-color:rgba(61,220,151,.5);background:rgba(61,220,151,.07)}
+.gate-switch.off{border-color:rgba(255,200,87,.45);background:rgba(255,200,87,.06)}
+.gate-switch .btn-on{background:var(--ok);color:#04140d;border-color:var(--ok);font-weight:700}

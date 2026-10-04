@@ -183,6 +183,8 @@
         </div>
       </div>
 
+      ${gateSwitch()}
+
       <div class="stat-grid">
         <div class="stat accent"><div class="k">Revenue (paid)</div><div class="v">${esc(CN.amount(s.revenue))}</div></div>
         <div class="stat teal"><div class="k">Tickets sold</div><div class="v">${s.tickets_sold ?? 0}</div></div>
@@ -723,6 +725,7 @@
         <div><h1 style="font-size:1.8rem;margin:0">Gate check-in</h1>
           <p class="muted small" style="margin:4px 0 0">Scan the QR on the ticket, or type the code underneath it.</p></div>
       </div>
+      ${gateSwitch()}
       <div class="panel" style="max-width:560px">
         <div class="field"><label>Ticket code</label>
           <input id="scanCode" placeholder="CN1A2B3C4D5E" autocomplete="off" style="text-transform:uppercase"></div>
@@ -735,6 +738,32 @@
         <div id="reader" style="margin-top:16px"></div>
         <div id="scanOut"></div>
       </div>`;
+  }
+
+  /* ---------- gate check-ins switch: opens / closes scanning in the OFC Portal ---------- */
+  const gateIsOpen = () => String((cache.settings || {}).gate_checkin_open) === "true";
+
+  function gateSwitch() {
+    const on = gateIsOpen();
+    return `
+      <div class="panel gate-switch ${on ? "on" : "off"}">
+        <div>
+          <div style="font-weight:700;font-size:1.05rem">${on ? "Gate check-ins are ON" : "Gate check-ins are OFF"}</div>
+          <div class="small muted">${on
+            ? "Gate officials can scan and admit tickets in the OFC Portal."
+            : "Gate officials can sign in, but can't scan until you turn this on."}</div>
+        </div>
+        <button class="btn ${on ? "btn-danger" : "btn-on"}" data-act="gate-toggle">${on ? "Turn off gate check-ins" : "TURN ON GATE CHECK-INS"}</button>
+      </div>`;
+  }
+
+  async function toggleGate() {
+    const next = !gateIsOpen();
+    if (!next && !confirm("Turn off gate check-ins? Officials' scanners stop working within 10 seconds.")) return;
+    const r = await CN.rpc("admin_set_gate_open", { p_pin: PIN, p_open: next });
+    cache.settings = { ...(cache.settings || {}), gate_checkin_open: r.open ? "true" : "false" };
+    CN.toast(r.open ? "Gate check-ins are on." : "Gate check-ins are off.", "ok");
+    render();
   }
 
   /* ==========================================================
@@ -1558,6 +1587,7 @@
       }
       if (act === "tg-test") return telegramTest();
       if (act === "change-pin") return changePin();
+      if (act === "gate-toggle") return toggleGate();
       if (act === "team-add") return teamModal(null);
       if (act === "team-edit") return teamModal((cache.team || []).find((m) => m.id === d.id));
       if (act === "team-delete") {

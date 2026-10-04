@@ -25,6 +25,8 @@
   let cam = null;
   let busy = false;
   let poll = null;
+  let open = null;      // the ticket on screen, waiting for Accept / Reject
+  let gateOpen = true;  // the gate switch from admin, refreshed with the stats
 
   CN.applyBrand();
   boot();
@@ -124,7 +126,7 @@
     await loadStats();
     clearInterval(poll);
     // the other gates are scanning too — keep the totals honest
-    poll = setInterval(() => { if (!document.hidden) loadStats(); }, 15000);
+    poll = setInterval(() => { if (!document.hidden) loadStats(); }, 10000);
   }
 
   function nearestEvent() {
@@ -152,10 +154,14 @@
 
       <div id="statsBox">${statsHtml()}</div>
 
-      <div class="panel gate-scan">
+      <div class="panel gate-closed ${gateOpen ? "hidden" : ""}" id="gateClosed">
+        <div class="verdict-title" style="font-size:1.15rem">Gate check-ins are off</div>
+        <p class="muted small" style="margin:6px 0 0">Scanning opens as soon as the owner turns check-ins on. This page updates by itself — no need to refresh.</p>
+      </div>
+
+      <div class="panel gate-scan ${gateOpen ? "" : "hidden"}">
         <button class="btn btn-primary btn-block gate-cam-btn" id="camBtn">${cameraIcon()} Start scanning</button>
         <div id="reader"></div>
-        <div id="scanOut"></div>
         <form id="codeForm" class="gate-code">
           <input id="codeIn" placeholder="Or type the ticket ID, e.g. CN1A2B3C4D5E" autocomplete="off"
                  autocapitalize="characters" spellcheck="false">
@@ -196,6 +202,7 @@
       const s = await CN.rpc("team_stats", { p_token: token, p_event_id: id });
       if (id !== eventId) return;          // they switched events while this was in flight
       stats = s;
+      setGate(s.gate_open !== false);
       const sb = $("#statsBox"), rb = $("#recentBox");
       if (sb) sb.innerHTML = statsHtml();
       if (rb) rb.innerHTML = recentHtml();
@@ -241,41 +248,137 @@
     cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>'
   };
 
+  /* A scan only LOOKS at the ticket. Nothing is spent until the official taps
+     Accept, and team_accept re-checks it then — so if another gate admitted the
+     same ticket in the meantime, this one is told it's already been scanned. */
+
   async function scan(text) {
-    const out = $("#scanOut");
-    out.innerHTML = `<div class="scan-result"><span class="spinner"></span></div>`;
+    pauseCamera();
+    showSheet("wait");
     let r;
     try {
       r = await CN.rpc("team_scan", { p_token: token, p_event_id: eventId, p_code: text });
     } catch (e) {
-      if (isExpired(e)) return signOut(true);
-      out.innerHTML = `<div class="scan-result bad"><div class="big">${IC.cross}Couldn't check</div>
-        <div class="small">${esc(e.message)} — check your signal and scan again.</div></div>`;
-      buzz(false);
-      return;
+      if (isExpired(e)) { closeSheet(); return signOut(true); }
+      return showSheet("error", { message: e.message });
     }
-    const map = {
-      valid: ["valid", IC.check + "Let them in", ""],
-      already_used: ["used", IC.warn + "Already scanned",
-        [r.used_at ? "At " + timeOf(r.used_at) : "", r.scanned_by ? "by " + r.scanned_by : ""].filter(Boolean).join(" ")],
-      void: ["bad", IC.cross + "Ticket cancelled", "This ticket was cancelled. Don't let them in."],
-      wrong_event: ["bad", IC.cross + "Wrong event", r.event ? `This ticket is for ${r.event}.` : ""],
-      not_found: ["bad", IC.cross + "Not a valid ticket", "Nothing in the system matches this code."]
-    };
-    const [cls, title, note] = map[r.result] || map.not_found;
-    out.innerHTML = `<div class="scan-result ${cls}">
-      <div class="big">${title}</div>
-      ${r.buyer ? `<div style="font-weight:600">${esc(r.buyer)}</div>` : ""}
-      ${r.type ? `<div class="small muted">${esc(r.type)}${r.code ? " · " + esc(r.code) : ""}</div>` : ""}
-      ${note ? `<div class="small muted" style="margin-top:6px">${esc(note)}</div>` : ""}
-    </div>`;
-    buzz(r.result === "valid");
     const inp = $("#codeIn"); if (inp) inp.value = "";
-    if (r.result === "valid") loadStats();
+    if (r.result === "closed") { setGate(false); return closeSheet(); }
+    if (r.result === "valid") open = { code: r.code };
+    showSheet(r.result, r);
   }
 
-  function buzz(ok) {
-    if (navigator.vibrate) navigator.vibrate(ok ? 80 : [80, 60, 80, 60, 80]);
+  async function accept() {
+    if (!open) return;
+    const code = open.code;
+    open = null;
+    showSheet("wait");
+    let r;
+    try {
+      r = await CN.rpc("team_accept", { p_token: token, p_event_id: eventId, p_code: code });
+    } catch (e) {
+      if (isExpired(e)) { closeSheet(); return signOut(true); }
+      open = { code };          // nothing was spent — let them try Accept again
+      return showSheet("error", { message: e.message, retry: true });
+    }
+    if (r.result === "closed") { setGate(false); return closeSheet(); }
+    if (r.result !== "admitted") return showSheet(r.result, r);   // e.g. another gate just let them in
+    showSheet("admitted", r);
+    loadStats();
+    setTimeout(closeSheet, 900);
+  }
+
+  function reject() {
+    open = null;
+    closeSheet();
+  }
+
+  const INVALID_HELP = `
+    <div class="verdict-help">
+      <b>Do not let them in.</b> If they say they bought a ticket:
+      <ol>
+        <li>Ask for their <b>confirmation email from Coast Nation</b>.</li>
+        <li>Check the name on it matches the person.</li>
+        <li>Type the ticket ID from that email (it starts with <b>CN</b>) in the box under the scanner.</li>
+      </ol>
+      No email, or still invalid? Send them to the admin desk.
+    </div>`;
+
+  function showSheet(kind, r = {}) {
+    let host = $("#verdict");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "verdict";
+      document.body.appendChild(host);
+    }
+    const who = r.buyer ? `<div class="verdict-name">${esc(r.buyer)}</div>` : "";
+    const meta = r.type || r.code
+      ? `<div class="verdict-meta">${esc(r.type || "")}${r.type && r.code ? " · " : ""}<span class="ticket-code">${esc(r.code || "")}</span></div>` : "";
+    const next = `<button class="btn btn-soft btn-block verdict-btn" data-v="next">Next scan</button>`;
+
+    const views = {
+      wait: () => ["wait", `<div class="center" style="padding:26px 0"><span class="spinner" style="width:30px;height:30px;border-width:3px"></span></div>`],
+      valid: () => ["ok", `
+        <div class="verdict-title">${IC.check} VALID — let them in</div>${who}${meta}
+        <div class="verdict-actions">
+          <button class="btn verdict-btn verdict-reject" data-v="reject">Reject</button>
+          <button class="btn verdict-btn verdict-accept" data-v="accept">Accept</button>
+        </div>`],
+      admitted: () => ["ok", `<div class="verdict-title">${IC.check} Admitted</div>${who}`],
+      already_used: () => ["warn", `
+        <div class="verdict-title">${IC.warn} ALREADY SCANNED</div>${who}${meta}
+        <div class="verdict-by">Let in${r.used_at ? " at <b>" + esc(timeOf(r.used_at)) + "</b>" : ""} by <b>${esc(r.scanned_by || "another gate")}</b></div>
+        <div class="verdict-help">Don't let them in again. If they think it's a mistake, send them to the admin desk.</div>
+        ${next}`],
+      wrong_event: () => ["bad", `
+        <div class="verdict-title">${IC.cross} INVALID — wrong event</div>${who}${meta}
+        <div class="verdict-by">This ticket is for <b>${esc(r.event || "another event")}</b>.</div>
+        ${INVALID_HELP}${next}`],
+      void: () => ["bad", `
+        <div class="verdict-title">${IC.cross} INVALID — ticket cancelled</div>${who}${meta}
+        ${INVALID_HELP}${next}`],
+      not_found: () => ["bad", `
+        <div class="verdict-title">${IC.cross} INVALID</div>
+        <div class="verdict-by">This code isn't a Coast Nation ticket.</div>
+        ${INVALID_HELP}${next}`],
+      error: () => ["bad", `
+        <div class="verdict-title">${IC.cross} Couldn't check</div>
+        <div class="verdict-by">${esc(r.message || "")} — check your signal.</div>
+        ${r.retry
+          ? `<div class="verdict-actions">
+               <button class="btn verdict-btn verdict-reject" data-v="reject">Reject</button>
+               <button class="btn verdict-btn verdict-accept" data-v="accept">Try Accept again</button></div>`
+          : `<button class="btn btn-soft btn-block verdict-btn" data-v="next">Scan again</button>`}`]
+    };
+    const [tone, html] = (views[kind] || views.not_found)();
+    host.className = `verdict ${tone}`;
+    host.innerHTML = `<div class="verdict-card" role="alertdialog" aria-live="assertive">${html}</div>`;
+    host.querySelectorAll("[data-v]").forEach((b) => {
+      b.onclick = () => (b.dataset.v === "accept" ? accept() : b.dataset.v === "reject" ? reject() : closeSheet());
+    });
+    if (kind !== "wait") buzz(tone);
+  }
+
+  function closeSheet() {
+    const host = $("#verdict");
+    if (host) host.remove();
+    open = null;
+    resumeCamera();
+  }
+
+  function buzz(tone) {
+    if (!navigator.vibrate) return;
+    navigator.vibrate(tone === "ok" ? 80 : tone === "warn" ? [120, 80, 120] : [80, 60, 80, 60, 80]);
+  }
+
+  /* ---------------- the gate switch (set in admin) ---------------- */
+  function setGate(isOpen) {
+    if (gateOpen === isOpen) return;
+    gateOpen = isOpen;
+    if (!isOpen) { closeSheet(); stopCamera(); }
+    const banner = $("#gateClosed"), scanBox = $(".gate-scan");
+    if (banner) banner.classList.toggle("hidden", isOpen);
+    if (scanBox) scanBox.classList.toggle("hidden", !isOpen);
   }
 
   async function toggleCamera() {
@@ -286,17 +389,10 @@
     cam = new window.Html5Qrcode("readerInner");
     btn.disabled = true;
     try {
-      await cam.start({ facingMode: "environment" }, { fps: 10, qrbox: 240 }, async (text) => {
-        if (busy) return;          // one read per QR
-        busy = true;
-        try { cam.pause(true); } catch (e) { /* already paused */ }
-        try { await scan(text); }
-        finally {
-          setTimeout(() => {
-            try { cam && cam.resume(); } catch (e) { /* stopped meanwhile */ }
-            busy = false;
-          }, 1500);
-        }
+      // the camera stays paused while a result is on screen; closing it resumes scanning
+      await cam.start({ facingMode: "environment" }, { fps: 10, qrbox: 240 }, (text) => {
+        if (busy || $("#verdict")) return;     // one read per QR
+        scan(text);
       });
       btn.innerHTML = "Stop camera";
       btn.classList.replace("btn-primary", "btn-soft");
@@ -307,6 +403,18 @@
     } finally {
       btn.disabled = false;
     }
+  }
+
+  function pauseCamera() {
+    busy = true;
+    if (cam) { try { cam.pause(true); } catch (e) { /* not scanning yet */ } }
+  }
+  function resumeCamera() {
+    // a short beat so the same QR still in front of the lens isn't read again instantly
+    setTimeout(() => {
+      if (cam) { try { cam.resume(); } catch (e) { /* stopped meanwhile */ } }
+      busy = false;
+    }, 600);
   }
 
   async function stopCamera() {
