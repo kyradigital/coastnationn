@@ -606,9 +606,6 @@ figure.chart figcaption p{margin:0}
 .gate-cam-btn{padding:16px;font-size:1.02rem}
 .gate-reader{margin-top:14px;border-radius:14px;overflow:hidden;background:#000}
 .gate-reader video{width:100% !important;display:block}
-.gate-code{display:flex;gap:8px;margin-top:16px}
-.gate-code input{flex:1;min-width:0;text-transform:uppercase}
-.gate-code input::placeholder{text-transform:none}
 .gate-recent{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .gate-recent:first-child{border-top:0;padding-top:0}
 @media (max-width:420px){.gate-stats .stat .v{font-size:1.3rem}}
@@ -653,3 +650,11 @@ figure.chart figcaption p{margin:0}
 .gate-switch.on{border-color:rgba(61,220,151,.5);background:rgba(61,220,151,.07)}
 .gate-switch.off{border-color:rgba(255,200,87,.45);background:rgba(255,200,87,.06)}
 .gate-switch .btn-on{background:var(--ok);color:#04140d;border-color:var(--ok);font-weight:700}
+.gate-code{margin-top:16px}
+.gate-code-label{margin-bottom:8px}
+.gate-code-row{display:flex;gap:8px;align-items:stretch}
+.gate-code-prefix{display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--card-2);color:var(--muted);font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:1.15rem;font-weight:600}
+.gate-code-row input{flex:1;min-width:0;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:1.35rem;letter-spacing:.18em;font-weight:600;padding:12px}
+.gate-code-row input::placeholder{letter-spacing:.18em;opacity:.45}
+.ticket-no{margin-top:8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ticket-no .ticket-code{font-size:1.25rem;font-weight:700;letter-spacing:.1em}

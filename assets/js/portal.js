@@ -162,10 +162,14 @@
       <div class="panel gate-scan ${gateOpen ? "" : "hidden"}">
         <button class="btn btn-primary btn-block gate-cam-btn" id="camBtn">${cameraIcon()} Start scanning</button>
         <div id="reader"></div>
-        <form id="codeForm" class="gate-code">
-          <input id="codeIn" placeholder="Or type the ticket ID, e.g. CN1A2B3C4D5E" autocomplete="off"
-                 autocapitalize="characters" spellcheck="false">
-          <button class="btn btn-soft" type="submit">Check in</button>
+        <form id="codeForm" class="gate-code" autocomplete="off">
+          <label for="codeIn" class="gate-code-label">No QR? Type the 6-digit ticket number</label>
+          <div class="gate-code-row">
+            <span class="gate-code-prefix">CN-</span>
+            <input id="codeIn" inputmode="numeric" pattern="[0-9]*" placeholder="482913"
+                   autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+            <button class="btn btn-soft" type="submit">Check</button>
+          </div>
         </form>
       </div>
 
@@ -187,7 +191,16 @@
     $("#codeForm").onsubmit = (e) => {
       e.preventDefault();
       const v = $("#codeIn").value.trim();
-      if (v) scan(v);
+      if (v) { $("#codeIn").blur(); scan(v); }
+    };
+    // the 6th digit checks the ticket by itself — no Enter, no button
+    $("#codeIn").oninput = () => {
+      const inp = $("#codeIn");
+      const digits = inp.value.replace(/\D/g, "");
+      if (/^\d*$/.test(inp.value.replace(/[\s-]/g, "")) && digits.length === 6) {
+        inp.blur();               // drop the keyboard so the result is fully visible
+        scan(digits);
+      }
     };
   }
 
@@ -253,6 +266,7 @@
      same ticket in the meantime, this one is told it's already been scanned. */
 
   async function scan(text) {
+    unlockAudio();
     pauseCamera();
     showSheet("wait");
     let r;
@@ -299,7 +313,7 @@
       <ol>
         <li>Ask for their <b>confirmation email from Coast Nation</b>.</li>
         <li>Check the name on it matches the person.</li>
-        <li>Type the ticket ID from that email (it starts with <b>CN</b>) in the box under the scanner.</li>
+        <li>Type the 6-digit ticket number from that email (after <b>CN-</b>) in the box under the scanner.</li>
       </ol>
       No email, or still invalid? Send them to the admin desk.
     </div>`;
@@ -356,8 +370,65 @@
     host.querySelectorAll("[data-v]").forEach((b) => {
       b.onclick = () => (b.dataset.v === "accept" ? accept() : b.dataset.v === "reject" ? reject() : closeSheet());
     });
-    if (kind !== "wait") buzz(tone);
+    if (kind !== "wait") { buzz(tone); beep(kind === "admitted" ? "done" : tone); }
   }
+
+  // Bluetooth / USB scanners type like a keyboard and press Enter — so Enter accepts,
+  // Escape rejects, and with no result open, typing goes straight to the code box.
+  document.addEventListener("keydown", (e) => {
+    const sheet = $("#verdict");
+    if (sheet) {
+      if (e.key === "Enter") { e.preventDefault(); open ? accept() : (sheet.querySelector('[data-v="next"]') && closeSheet()); }
+      else if (e.key === "Escape") { e.preventDefault(); open ? reject() : closeSheet(); }
+      return;
+    }
+    const inp = $("#codeIn");
+    if (inp && document.activeElement !== inp && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
+        && document.activeElement?.tagName !== "SELECT") {
+      inp.focus();
+    }
+  });
+
+  /* ---------------- sound: you can hear the answer without looking ---------------- */
+  let audio = null;
+  function unlockAudio() {
+    // iPhones only allow sound after a tap — Start scanning / Check is that tap
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === "suspended") audio.resume();
+    } catch (e) { audio = null; }
+  }
+  function beep(kind) {
+    if (!audio) return;
+    const notes = { ok: [[880, .09]], done: [[880, .07], [1320, .11]], warn: [[520, .14], [520, .14]], bad: [[220, .32]] }[kind];
+    if (!notes) return;
+    try {
+      let t = audio.currentTime;
+      notes.forEach(([f, d]) => {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = kind === "bad" ? "square" : "sine";
+        o.frequency.value = f;
+        g.gain.setValueAtTime(.0001, t);
+        g.gain.exponentialRampToValueAtTime(.25, t + .01);
+        g.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(g).connect(audio.destination);
+        o.start(t); o.stop(t + d + .02);
+        t += d + .05;
+      });
+    } catch (e) { /* sound is a bonus */ }
+  }
+
+  /* keep the phone awake while the scanner is open — no screen locking between guests */
+  let wake = null;
+  async function keepAwake(on) {
+    try {
+      if (on && "wakeLock" in navigator && !wake) {
+        wake = await navigator.wakeLock.request("screen");
+        wake.addEventListener("release", () => { wake = null; });
+      } else if (!on && wake) { await wake.release(); wake = null; }
+    } catch (e) { wake = null; }
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && cam) keepAwake(true); });
 
   function closeSheet() {
     const host = $("#verdict");
@@ -383,7 +454,8 @@
 
   async function toggleCamera() {
     if (cam) return stopCamera();
-    if (!window.Html5Qrcode) return CN.toast("Camera didn't load — type the ticket ID instead.", "err");
+    unlockAudio();
+    if (!window.Html5Qrcode) return CN.toast("Camera didn't load — type the ticket number instead.", "err");
     const btn = $("#camBtn");
     $("#reader").innerHTML = `<div id="readerInner" class="gate-reader"></div>`;
     cam = new window.Html5Qrcode("readerInner");
@@ -396,6 +468,7 @@
       });
       btn.innerHTML = "Stop camera";
       btn.classList.replace("btn-primary", "btn-soft");
+      keepAwake(true);
     } catch (e) {
       cam = null;
       $("#reader").innerHTML = `<p class="small muted" style="margin:12px 0 0">Couldn't open the camera (${esc(e.message || e)}).
@@ -420,6 +493,7 @@
   async function stopCamera() {
     if (!cam) return;
     const c = cam; cam = null; busy = false;
+    keepAwake(false);
     try { await c.stop(); } catch (e) { /* already stopped */ }
     const r = $("#reader"); if (r) r.innerHTML = "";
     const btn = $("#camBtn");

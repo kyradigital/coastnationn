@@ -167,7 +167,7 @@
                 <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${CN.esc(o.event.name)}</div>
               </div>
             </div>
-            <div class="ticket-code">${CN.esc(t.code)}</div>
+            <div class="ticket-no"><span class="small muted">Ticket no.</span> <span class="ticket-code">${CN.esc(t.code)}</span></div>
             <div style="margin-top:6px"><span class="badge ${t.status === "used" ? "dim" : "ok"}">${t.status === "used" ? "Already scanned" : "Valid"}</span></div>
           </div>
         </div>`

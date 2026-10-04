@@ -183,7 +183,6 @@
         </div>
       </div>
 
-      ${gateSwitch()}
 
       <div class="stat-grid">
         <div class="stat accent"><div class="k">Revenue (paid)</div><div class="v">${esc(CN.amount(s.revenue))}</div></div>
@@ -728,7 +727,7 @@
       ${gateSwitch()}
       <div class="panel" style="max-width:560px">
         <div class="field"><label>Ticket code</label>
-          <input id="scanCode" placeholder="CN1A2B3C4D5E" autocomplete="off" style="text-transform:uppercase"></div>
+          <input id="scanCode" placeholder="CN-482913 or just 482913" autocomplete="off" style="text-transform:uppercase"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary" data-act="scan">Check in</button>
           <button class="btn btn-soft" data-act="peek">Check only (don't mark used)</button>
