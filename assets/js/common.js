@@ -96,7 +96,8 @@ const CN = (() => {
       EVENT_NOT_AVAILABLE: "This event is not on sale right now.",
       TICKET_TYPE_NOT_FOUND: "That ticket type is no longer available.",
       ORDER_NOT_FOUND: "We could not find that order.",
-      PIN_TOO_SHORT: "The new PIN must be at least 4 characters."
+      PIN_TOO_SHORT: "The new PIN must be at least 4 characters.",
+      OWNER_ONLY: "Only the owner can do that."
     };
     for (const k in map) if (String(m).includes(k)) return map[k];
     return m;
@@ -119,6 +120,7 @@ const CN = (() => {
             <a href="index.html">Events</a>
             <a href="ticket.html">Find my ticket</a>
             <a id="waLink" href="#" target="_blank" rel="noopener">WhatsApp us</a>
+            <a href="portal.html">OFC Portal</a>
           </div>
           <div id="secretKey" title="">&copy; ${y} All rights reserved &middot; Coast Nation</div>
         </div>

@@ -591,3 +591,32 @@ figure.chart figcaption p{margin:0}
       linear-gradient(180deg, rgba(6,13,20,.80) 0%, rgba(6,13,20,.66) 42%, rgba(6,13,20,.80) 74%, var(--bg) 100%);
   }
 }
+
+/* ---------- OFC Portal (gate official) ---------- */
+.gate-main{padding-top:22px;padding-bottom:48px;max-width:620px}
+.gate-event{display:flex;gap:14px;align-items:center;margin-bottom:18px}
+.gate-event .ticket-poster{width:58px;height:58px}
+.gate-event-name{font-family:'Sora',sans-serif;font-weight:700;font-size:1.2rem;line-height:1.2}
+.gate-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.gate-stats .stat{padding:13px 12px}
+.gate-stats .stat .k{font-size:.64rem;letter-spacing:.1em}
+.gate-stats .stat .v{font-size:1.6rem}
+.gate-bar{height:8px;border-radius:999px;background:var(--card-2);overflow:hidden;margin-top:14px}
+.gate-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--ok));border-radius:inherit;transition:width .4s}
+.gate-cam-btn{padding:16px;font-size:1.02rem}
+.gate-reader{margin-top:14px;border-radius:14px;overflow:hidden;background:#000}
+.gate-reader video{width:100% !important;display:block}
+.gate-code{display:flex;gap:8px;margin-top:16px}
+.gate-code input{flex:1;min-width:0;text-transform:uppercase}
+.gate-code input::placeholder{text-transform:none}
+.gate-recent{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.gate-recent:first-child{border-top:0;padding-top:0}
+@media (max-width:420px){.gate-stats .stat .v{font-size:1.3rem}}
+
+/* team list in admin */
+.team-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.team-row:first-child{border-top:0}
+.team-avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--card-2);border:1px solid var(--line-strong);font-family:'Sora',sans-serif;font-weight:700;flex:none}
+.email-suffix{display:flex;align-items:stretch}
+.email-suffix input{border-top-right-radius:0;border-bottom-right-radius:0}
+.email-suffix span{display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);border-left:0;border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:var(--card-2);color:var(--muted);font-size:.9rem;white-space:nowrap}

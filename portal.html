@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#060d14">
+<title>OFC Portal — Coast Nation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=202610041200">
+</head>
+<body>
+
+<!-- ---------- sign in ---------- -->
+<div class="pin-screen hidden" id="signIn">
+  <form class="pin-card" id="signCard" autocomplete="on">
+    <div class="brand" style="justify-content:center;margin-bottom:6px">
+      <div class="brand-mark">CN</div>
+      <div style="text-align:left"><span data-brand-name>Coast Nation</span><span class="sub">OFC Portal</span></div>
+    </div>
+    <p class="muted small" style="margin:14px 0 20px">Team sign-in. Use the email and password the owner gave you.</p>
+    <div class="field" style="text-align:left">
+      <label for="tmEmail">Email</label>
+      <input id="tmEmail" type="email" inputmode="email" autocomplete="username" autocapitalize="none"
+             spellcheck="false" placeholder="name@coastnation.net" required>
+    </div>
+    <div class="field" style="text-align:left">
+      <label for="tmPass">Password</label>
+      <input id="tmPass" type="password" autocomplete="current-password" placeholder="••••••••" required>
+    </div>
+    <div id="signMsg" class="small" style="min-height:20px;color:var(--danger);text-align:left"></div>
+    <button class="btn btn-primary btn-block" id="signGo" type="submit" style="margin-top:6px">Sign in</button>
+    <p class="small muted" style="margin:16px 0 0"><a href="index.html">← Back to the public site</a></p>
+  </form>
+</div>
+
+<!-- ---------- gate official ---------- -->
+<div class="hidden" id="app">
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">CN</div>
+        <div><span data-brand-name>Coast Nation</span><span class="sub" id="whoLine">OFC Portal</span></div>
+      </div>
+      <div class="nav-actions">
+        <button class="btn btn-soft btn-sm" id="signOut">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main class="wrap gate-main" id="gate"></main>
+</div>
+
+<div class="pin-screen" id="booting"><span class="spinner"></span></div>
+
+<script src="assets/js/vendor/supabase.js"></script>
+<script src="assets/js/vendor/html5-qrcode.min.js"></script>
+<script src="assets/js/config.js?v=202610041200"></script>
+<script src="assets/js/common.js?v=202610041200"></script>
+<script src="assets/js/portal.js?v=202610041200"></script>
+</body>
+</html>

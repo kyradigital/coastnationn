@@ -40,8 +40,10 @@
   /* Staff never see the Settings door. (The lock is in the database — this just
      stops them walking into a wall.) */
   function applyRole() {
-    const set = $('#sideNav button[data-tab="settings"]');
-    if (set) set.classList.toggle("hidden", !isOwner());
+    ["settings", "team"].forEach((t) => {
+      const b = $(`#sideNav button[data-tab="${t}"]`);
+      if (b) b.classList.toggle("hidden", !isOwner());
+    });
     const sub = $("#sideSub");
     if (sub && !isOwner()) sub.textContent = who ? `Signed in as ${who}` : "Team access";
   }
@@ -109,6 +111,10 @@
         await loadLedger();
         render();
       }
+      if (tab === "team") {
+        await loadTeam();
+        render();
+      }
     })
   );
 
@@ -139,7 +145,8 @@
 
   function render() {
     const main = $("#main");
-    if (tab === "settings" && !isOwner()) tab = "dash";   // belt as well as braces
+    if ((tab === "settings" || tab === "team") && !isOwner()) tab = "dash";   // belt as well as braces
+    if (tab === "team") main.innerHTML = viewTeam();
     if (tab === "dash") main.innerHTML = viewDash();
     if (tab === "events") main.innerHTML = viewEvents();
     if (tab === "orders") main.innerHTML = viewOrders();
@@ -728,6 +735,156 @@
         <div id="reader" style="margin-top:16px"></div>
         <div id="scanOut"></div>
       </div>`;
+  }
+
+  /* ==========================================================
+     TEAM — OFC Portal accounts (owner only)
+     ========================================================== */
+  const ROLES = { gate: "Gate official" };
+
+  async function loadTeam() {
+    try {
+      cache.team = await CN.rpc("admin_team_list", { p_pin: PIN }) || [];
+    } catch (e) {
+      cache.team = null;
+      CN.toast(e.message, "err");
+    }
+  }
+
+  function viewTeam() {
+    const team = cache.team;
+    const portal = location.origin + location.pathname.replace(/[^/]*$/, "") + "portal.html";
+    return `
+      <div class="admin-head">
+        <div><h1 style="font-size:1.8rem;margin:0">Team</h1>
+          <p class="muted small" style="margin:4px 0 0">People who sign in at the <a href="portal.html" target="_blank" style="color:var(--teal)">OFC Portal</a> with their @coastnation.net email.</p></div>
+        <button class="btn btn-primary" data-act="team-add">+ Add team member</button>
+      </div>
+      <div class="panel" style="max-width:760px">
+        ${team == null ? `<div class="center"><span class="spinner"></span></div>`
+          : !team.length ? `<div class="empty" style="border:0;padding:20px 0">
+              <h3>No team yet</h3>
+              <p class="small">Add someone, give them a role, and send them their email, password and this link:<br>
+              <b style="word-break:break-all">${esc(portal)}</b></p></div>`
+          : team.map((m) => `
+            <div class="team-row">
+              <div class="team-avatar">${esc(CN.initials(m.name))}</div>
+              <div style="flex:1;min-width:180px">
+                <div style="font-weight:600">${esc(m.name)} ${m.active ? "" : `<span class="badge dim">Switched off</span>`}</div>
+                <div class="small muted" style="word-break:break-all">${esc(m.email)}</div>
+                <div class="small muted">${esc(ROLES[m.role] || m.role)} · ${m.scans} scanned ·
+                  ${m.last_login_at ? "last signed in " + esc(CN.prettyDateTime(m.last_login_at)) : "never signed in"}</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-soft btn-sm" data-act="team-edit" data-id="${m.id}">Edit</button>
+                <button class="btn btn-danger btn-sm" data-act="team-delete" data-id="${m.id}">Remove</button>
+              </div>
+            </div>`).join("")}
+      </div>`;
+  }
+
+  function newPassword() {
+    // no look-alike characters, so it can be read out over the phone
+    const abc = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const bytes = crypto.getRandomValues(new Uint8Array(10));
+    return Array.from(bytes, (b) => abc[b % abc.length]).join("");
+  }
+
+  function teamModal(m) {
+    const isNew = !m;
+    const v = m || { role: "gate", active: true };
+    $("#modalHost").innerHTML = `
+      <div class="modal-backdrop" id="backdrop">
+        <div class="modal" style="max-width:500px">
+          <div class="modal-head">
+            <h3 style="margin:0">${isNew ? "Add team member" : "Edit " + esc(v.name)}</h3>
+            <button class="x-btn" data-close>&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="field"><label>Name</label><input id="t_name" value="${esc(v.name || "")}" placeholder="e.g. Jessica"></div>
+            <div class="field"><label>Email</label>
+              ${isNew
+                ? `<div class="email-suffix"><input id="t_user" placeholder="j4ss" autocapitalize="none" spellcheck="false" autocomplete="off"><span>@coastnation.net</span></div>
+                   <div class="small muted" style="margin-top:6px">Letters, numbers, dots, dashes. This is what they sign in with.</div>`
+                : `<input value="${esc(v.email)}" disabled>`}
+            </div>
+            <div class="field"><label>Role</label>
+              <select id="t_role">${Object.entries(ROLES).map(([k, n]) => `<option value="${k}" ${v.role === k ? "selected" : ""}>${n}</option>`).join("")}</select>
+              <div class="small muted" style="margin-top:6px">Gate official: the scanner and their own check-in numbers. Nothing else.</div>
+            </div>
+            <div class="field"><label>${isNew ? "Password" : "New password (leave blank to keep theirs)"}</label>
+              <div style="display:flex;gap:8px">
+                <input id="t_pass" type="text" autocomplete="off" spellcheck="false" style="font-family:ui-monospace,Menlo,monospace" value="${isNew ? newPassword() : ""}">
+                <button class="btn btn-soft" type="button" id="t_gen" style="flex:none">New</button>
+              </div>
+              <div class="small muted" style="margin-top:6px">At least 8 characters. Copy it now — it can't be shown again, only reset.</div>
+            </div>
+            ${isNew ? "" : `<label style="display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--text)">
+              <input type="checkbox" id="t_active" style="width:auto" ${v.active ? "checked" : ""}> Account switched on</label>`}
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-soft" data-close>Cancel</button>
+            <button class="btn btn-primary" id="t_save">${isNew ? "Add to team" : "Save"}</button>
+          </div>
+        </div>
+      </div>`;
+    const close = () => ($("#modalHost").innerHTML = "");
+    $$("[data-close]").forEach((b) => (b.onclick = close));
+    $("#t_gen").onclick = () => { $("#t_pass").value = newPassword(); };
+    const user = $("#t_user");
+    // pasting a full address is fine — keep just the name part
+    if (user) user.oninput = () => { user.value = user.value.toLowerCase().replace(/@.*$/, "").replace(/\s/g, ""); };
+
+    $("#t_save").onclick = async () => {
+      const btn = $("#t_save");
+      const pass = $("#t_pass").value.trim();
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      try {
+        const r = await CN.rpc("admin_team_save", {
+          p_pin: PIN,
+          p_id: isNew ? null : v.id,
+          p_username: isNew ? user.value.trim() : v.username,
+          p_name: $("#t_name").value.trim(),
+          p_role: $("#t_role").value,
+          p_active: isNew ? true : $("#t_active").checked,
+          p_password: pass
+        });
+        if (!r.ok) { CN.toast(r.message, "err"); btn.disabled = false; btn.textContent = isNew ? "Add to team" : "Save"; return; }
+        if (isNew || pass) return showCredentials(isNew ? r.email : v.email, pass);
+        close();
+        CN.toast("Saved.", "ok");
+        await loadTeam(); render();
+      } catch (e) {
+        CN.toast(e.message, "err");
+        btn.disabled = false; btn.textContent = isNew ? "Add to team" : "Save";
+      }
+    };
+  }
+
+  // One last look at the login before it's gone, with a copy button to send it on.
+  function showCredentials(email, pass) {
+    const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "portal.html";
+    const text = `Coast Nation OFC Portal\n${link}\nEmail: ${email}\nPassword: ${pass}`;
+    $("#modalHost").innerHTML = `
+      <div class="modal-backdrop" id="backdrop">
+        <div class="modal" style="max-width:460px">
+          <div class="modal-head"><h3 style="margin:0">Send them this</h3><button class="x-btn" data-close>&times;</button></div>
+          <div class="modal-body">
+            <p class="small muted" style="margin-top:0">The password won't be shown again. Copy it and send it to them privately.</p>
+            <pre style="white-space:pre-wrap;word-break:break-all;background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:.9rem;margin:0">${esc(text)}</pre>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-soft" id="credCopy">Copy</button>
+            <button class="btn btn-primary" data-close>Done</button>
+          </div>
+        </div>
+      </div>`;
+    const done = async () => { $("#modalHost").innerHTML = ""; await loadTeam(); render(); };
+    $$("[data-close]").forEach((b) => (b.onclick = done));
+    $("#credCopy").onclick = async () => {
+      try { await navigator.clipboard.writeText(text); CN.toast("Copied.", "ok"); }
+      catch (e) { CN.toast("Couldn't copy — select the text and copy it.", "err"); }
+    };
   }
 
   /* ==========================================================
@@ -1401,6 +1558,15 @@
       }
       if (act === "tg-test") return telegramTest();
       if (act === "change-pin") return changePin();
+      if (act === "team-add") return teamModal(null);
+      if (act === "team-edit") return teamModal((cache.team || []).find((m) => m.id === d.id));
+      if (act === "team-delete") {
+        const m = (cache.team || []).find((x) => x.id === d.id);
+        if (!m || !confirm(`Remove ${m.name} (${m.email}) from the team? They're signed out straight away. Tickets they scanned stay scanned.`)) return;
+        await CN.rpc("admin_team_delete", { p_pin: PIN, p_id: m.id });
+        CN.toast(`${m.name} removed.`, "ok");
+        await loadTeam(); return render();
+      }
     } catch (e) {
       CN.toast(e.message, "err");
     }
