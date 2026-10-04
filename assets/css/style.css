@@ -623,7 +623,7 @@ figure.chart figcaption p{margin:0}
 
 /* ---------- scan verdict: a bottom sheet the thumb can reach ---------- */
 .verdict{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:rgba(3,8,12,.55);padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
-.verdict-card{width:100%;max-width:560px;border-radius:22px;padding:22px 20px 18px;border:2px solid var(--line-strong);background:var(--card);box-shadow:0 -10px 40px rgba(0,0,0,.6);animation:verdictUp .16s ease-out}
+.verdict-card{width:100%;max-width:560px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;border-radius:22px;padding:22px 20px 18px;border:2px solid var(--line-strong);background:var(--card);box-shadow:0 -10px 40px rgba(0,0,0,.6);animation:verdictUp .16s ease-out}
 @keyframes verdictUp{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){.verdict-card{animation:none}}
 .verdict.ok .verdict-card{background:#0d2a20;border-color:var(--ok)}
