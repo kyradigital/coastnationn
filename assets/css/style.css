@@ -721,3 +721,7 @@ figure.chart figcaption p{margin:0}
 .veh-note{margin-top:8px;color:#c7d6e2;font-style:italic}
 .veh-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:14px}
 .veh-approve{background:var(--ok);color:#04140d;border-color:var(--ok);font-weight:700}
+.hero-cta{margin:4px 0 18px;background:rgba(6,13,20,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.vr-link{display:block;margin-top:14px;padding:12px 14px;border:1px dashed var(--line-strong);border-radius:var(--radius-sm);font-size:.9rem;color:var(--muted);text-align:center}
+.vr-link b{color:var(--sand)}
+.vr-link:hover{border-color:var(--sand)}
