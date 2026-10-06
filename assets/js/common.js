@@ -119,6 +119,7 @@ const CN = (() => {
           <div class="footer-links" style="justify-content:flex-end;margin-bottom:10px">
             <a href="index.html">Events</a>
             <a href="ticket.html">Find my ticket</a>
+            <a href="vehicles.html">Vehicle registration</a>
             <a id="waLink" href="#" target="_blank" rel="noopener">WhatsApp us</a>
             <a href="portal.html">OFC Portal</a>
           </div>
@@ -182,6 +183,7 @@ const CN = (() => {
           <div><span data-brand-name>Coast Nation</span><span class="sub">Tickets, Kenya</span></div>
         </a>
         <div class="nav-actions">
+          <a class="btn btn-ghost btn-sm nav-hide-sm" href="vehicles.html">Register a car</a>
           <a class="btn btn-ghost btn-sm" href="ticket.html">My tickets</a>
           ${opts.back ? `<a class="btn btn-soft btn-sm" href="index.html">All events</a>` : ""}
         </div>

@@ -111,6 +111,10 @@
         await loadLedger();
         render();
       }
+      if (tab === "vehicles") {
+        await loadPulse();
+        render();
+      }
       if (tab === "team") {
         await loadTeam();
         render();
@@ -124,9 +128,226 @@
   }
 
   async function boot() {
-    await refresh();
+    await Promise.all([refresh(), loadPulse()]);
     CN.applyBrand();
     render();
+    $("#bellBtn").onclick = toggleBell;
+    // keep the bell, the briefing and the registrations count fresh while the dashboard is open
+    setInterval(async () => {
+      if (document.hidden) return;
+      await loadPulse();
+      const b = $("#briefing");
+      if (b) {
+        b.outerHTML = briefingHtml();
+        const go = $("#briefing [data-act]");
+        if (go) go.onclick = () => handle(go.dataset.act, go.dataset);
+      }
+      if ($("#bellPanel")) paintBell();
+    }, 60000);
+  }
+
+  /* ==========================================================
+     PULSE — activity feed, today's briefing, registrations
+     ========================================================== */
+  const SEEN_KEY = "cn_activity_seen";
+  const seenAt = () => { try { return Number(localStorage.getItem(SEEN_KEY)) || 0; } catch (e) { return 0; } };
+
+  async function loadPulse() {
+    const [activity, today, vehicles] = await Promise.all([
+      CN.rpc("admin_activity", { p_pin: PIN }).catch(() => null),
+      CN.rpc("admin_today", { p_pin: PIN }).catch(() => null),
+      CN.rpc("admin_vehicle_list", { p_pin: PIN }).catch(() => null)
+    ]);
+    if (activity) cache.activity = activity;
+    if (today) cache.today = today;
+    if (vehicles) cache.vehicles = vehicles;
+    paintBadges();
+  }
+
+  function paintBadges() {
+    const fresh = (cache.activity || []).filter((a) => new Date(a.at).getTime() > seenAt()).length;
+    const dot = $("#bellDot");
+    if (dot) { dot.textContent = fresh > 9 ? "9+" : fresh; dot.classList.toggle("hidden", !fresh); }
+    const pending = (cache.vehicles || []).filter((v) => v.status === "pending").length;
+    const vc = $("#vehCount");
+    if (vc) { vc.textContent = pending; vc.classList.toggle("hidden", !pending); }
+  }
+
+  /* ---- the bell ---- */
+  function toggleBell() {
+    if ($("#bellPanel")) return closeBell();
+    const p = document.createElement("div");
+    p.id = "bellPanel";
+    p.className = "bell-panel";
+    p.setAttribute("role", "dialog");
+    p.setAttribute("aria-label", "Notifications");
+    document.body.appendChild(p);
+    paintBell();
+    // opening it is reading it
+    try { localStorage.setItem(SEEN_KEY, String(Date.now())); } catch (e) { /* this visit only */ }
+    setTimeout(() => document.addEventListener("click", outside), 0);
+    document.addEventListener("keydown", escClose);
+  }
+  function outside(e) {
+    if (!e.target.closest("#bellPanel") && !e.target.closest("#bellBtn")) closeBell();
+  }
+  function escClose(e) { if (e.key === "Escape") closeBell(); }
+  function closeBell() {
+    const p = $("#bellPanel");
+    if (p) p.remove();
+    document.removeEventListener("click", outside);
+    document.removeEventListener("keydown", escClose);
+    paintBadges();
+  }
+
+  function paintBell() {
+    const p = $("#bellPanel");
+    if (!p) return;
+    const items = cache.activity || [];
+    const seen = seenAt();
+    const dayOf = (d) => new Date(d).toDateString();
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 864e5).toDateString();
+    const icon = {
+      sale: '<path d="M3 4h2.2l1.5 10.2a2 2 0 0 0 2 1.7h7.9a2 2 0 0 0 2-1.6L20 8H6.3"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
+      vehicle: '<path d="M3.5 15.5V12l1.8-4.6A2 2 0 0 1 7.2 6h9.6a2 2 0 0 1 1.9 1.4l1.8 4.6v3.5"/><circle cx="7" cy="16.5" r="1.8"/><circle cx="17" cy="16.5" r="1.8"/>',
+      checkin: '<path d="M8 12.5l2.6 2.6L16 9.5"/><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>'
+    };
+    let lastDay = "";
+    const rows = items.map((a) => {
+      const d = dayOf(a.at);
+      const head = d !== lastDay ? `<div class="bell-day">${d === today ? "Today" : d === yesterday ? "Yesterday" : esc(new Date(a.at).toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "short" }))}</div>` : "";
+      lastDay = d;
+      const isNew = new Date(a.at).getTime() > seen;
+      return `${head}
+        <button class="bell-item ${isNew ? "new" : ""}" data-go="${a.kind}">
+          <span class="bell-ic ${a.kind}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${icon[a.kind] || ""}</svg></span>
+          <span class="bell-txt">${esc(a.text)}${a.amount != null ? ` <b>${esc(CN.amount(a.amount))}</b>` : ""}
+            <span class="small muted">${esc(new Date(a.at).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" }))}</span></span>
+        </button>`;
+    }).join("");
+    p.innerHTML = `
+      <div class="bell-head"><b>What's been happening</b><button class="x-btn" id="bellClose" aria-label="Close">&times;</button></div>
+      ${briefingHtml(true)}
+      <div class="bell-list">${rows || `<p class="muted small" style="padding:14px 16px;margin:0">Nothing in the last two days yet.</p>`}</div>`;
+    $("#bellClose").onclick = closeBell;
+    p.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => {
+      closeBell();
+      goTab({ sale: "orders", vehicle: "vehicles", checkin: "checkin" }[b.dataset.go] || "dash");
+    }));
+  }
+
+  /* ---- today's briefing: plain sentences written from the live numbers ---- */
+  function briefingHtml(compact) {
+    const t = cache.today;
+    if (!t) return compact ? "" : `<div id="briefing"></div>`;
+    const n = (x, one, many) => `${x} ${x === 1 ? one : many}`;
+    const lines = [];
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    if (t.tickets > 0) {
+      let s = `<b>${n(t.tickets, "ticket", "tickets")}</b> sold today across ${n(t.orders, "purchase", "purchases")}, bringing in <b>${esc(CN.amount(t.revenue))}</b>`;
+      if (t.tickets_yesterday_so_far > 0) {
+        const diff = t.tickets - t.tickets_yesterday_so_far;
+        s += diff > 0 ? ` — ${diff} more than this time yesterday` : diff < 0 ? ` — ${-diff} fewer than this time yesterday` : " — level with yesterday";
+      }
+      lines.push(s + ".");
+      if (t.top_type && t.orders > 1) lines.push(`${esc(t.top_type.name)} is today's most popular ticket.`);
+    } else {
+      lines.push("No tickets sold yet today.");
+    }
+    if (t.vehicles > 0) lines.push(`<b>${n(t.vehicles, "car", "cars")}</b> registered today.`);
+    if (t.vehicles_pending > 0) lines.push(`<b>${n(t.vehicles_pending, "registration is", "registrations are")}</b> waiting for your approval.`);
+    if (t.checkins > 0) lines.push(`${n(t.checkins, "guest has", "guests have")} checked in at the gate today.`);
+    if (t.abandoned > 2) lines.push(`${t.abandoned} people started checkout today but didn't finish.`);
+    if (t.next_event) {
+      const e = t.next_event;
+      const when = e.days === 0 ? "is <b>today</b>" : e.days === 1 ? "is <b>tomorrow</b>" : `is in <b>${e.days} days</b>`;
+      lines.push(`${esc(e.name)} ${when}, with ${n(e.sold, "ticket", "tickets")} sold so far.`);
+    }
+
+    if (compact) return `<div class="bell-brief">${lines.map((l) => `<p>${l}</p>`).join("")}</div>`;
+    return `
+      <div class="panel briefing" id="briefing">
+        <div class="briefing-head">
+          <span class="briefing-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></span>
+          <div><b>${greet}${!isOwner() && who ? ", " + esc(who) : ""}</b><div class="small muted">Today so far · updates every minute</div></div>
+        </div>
+        ${lines.map((l) => `<p>${l}</p>`).join("")}
+        ${t.vehicles_pending > 0 ? `<button class="btn btn-soft btn-sm" data-act="go-vehicles">Review registrations</button>` : ""}
+      </div>`;
+  }
+
+  /* ==========================================================
+     REGISTRATIONS — cars submitted on vehicles.html
+     ========================================================== */
+  let vehFilter = "pending";
+
+  function viewVehicles() {
+    const all = cache.vehicles;
+    const counts = { pending: 0, approved: 0, rejected: 0 };
+    (all || []).forEach((v) => (counts[v.status] = (counts[v.status] || 0) + 1));
+    const rows = (all || []).filter((v) => vehFilter === "all" || v.status === vehFilter);
+    const chip = (k, label) => `<button class="chip ${vehFilter === k ? "active" : ""}" data-act="veh-filter" data-f="${k}">${label}${k !== "all" ? ` <span class="muted">${counts[k] || 0}</span>` : ""}</button>`;
+    return `
+      <div class="admin-head">
+        <div><h1 style="font-size:1.8rem;margin:0">Vehicle registrations</h1>
+          <p class="muted small" style="margin:4px 0 0">Cars submitted on the public <a href="vehicles.html" target="_blank" style="color:var(--teal)">registration page</a>. Approve the ones you want at the event.</p></div>
+      </div>
+      <div class="filters" style="margin-bottom:18px">
+        ${chip("pending", "Waiting")}${chip("approved", "Approved")}${chip("rejected", "Rejected")}${chip("all", "All")}
+      </div>
+      ${all == null ? `<div class="panel center"><span class="spinner"></span></div>`
+        : !rows.length ? `<div class="empty"><h3>${vehFilter === "pending" ? "Nothing waiting" : "Nothing here"}</h3>
+            <p class="small">${vehFilter === "pending" ? "New registrations land here for you to approve." : "Try another filter."}</p></div>`
+        : `<div class="veh-grid">${rows.map(vehCard).join("")}</div>`}`;
+  }
+
+  function vehCard(v) {
+    const badge = { pending: "warn", approved: "ok", rejected: "bad" }[v.status];
+    const label = { pending: "Waiting", approved: "Approved", rejected: "Rejected" }[v.status];
+    return `
+      <div class="veh-card">
+        <a class="veh-photo" href="${esc(v.photo_url)}" target="_blank" rel="noopener" title="Open full photo">
+          <img src="${esc(v.photo_url)}" alt="${esc(v.make + " " + v.model)}" loading="lazy"></a>
+        <div class="veh-body">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:start">
+            <div>
+              <div class="veh-title">${esc(v.make)} ${esc(v.model)}${v.year ? ` <span class="muted">${v.year}</span>` : ""}</div>
+              <div class="veh-plate">${esc(v.plate)}</div>
+            </div>
+            <span class="badge ${badge}">${label}</span>
+          </div>
+          <div class="small" style="margin-top:10px"><b>${esc(v.full_name)}</b> · <a href="tel:${esc(v.phone)}" style="color:var(--teal)">${esc(v.phone)}</a>${v.email ? ` · ${esc(v.email)}` : ""}</div>
+          <div class="small muted">${[v.colour, v.event_name, "sent " + CN.prettyDateTime(v.created_at), v.reference].filter(Boolean).map(esc).join(" · ")}</div>
+          ${v.notes ? `<div class="small veh-note">“${esc(v.notes)}”</div>` : ""}
+          ${v.review_note ? `<div class="small muted" style="margin-top:6px">Your note: ${esc(v.review_note)}</div>` : ""}
+          <div class="veh-actions">
+            ${v.status !== "approved" ? `<button class="btn btn-sm veh-approve" data-act="veh-review" data-id="${v.id}" data-s="approved">Approve</button>` : ""}
+            ${v.status !== "rejected" ? `<button class="btn btn-danger btn-sm" data-act="veh-review" data-id="${v.id}" data-s="rejected">Reject</button>` : ""}
+            ${v.status !== "pending" ? `<button class="btn btn-ghost btn-sm" data-act="veh-review" data-id="${v.id}" data-s="pending">Move back to waiting</button>` : ""}
+            ${isOwner() ? `<button class="btn btn-ghost btn-sm" data-act="veh-delete" data-id="${v.id}" title="Delete for good">Delete</button>` : ""}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function reviewVehicle(id, status) {
+    const v = (cache.vehicles || []).find((x) => x.id === id);
+    if (!v) return;
+    let note = null;
+    if (status === "rejected") {
+      note = prompt(`Reject ${v.make} ${v.model} (${v.plate})? Add a reason for your records (optional):`, "");
+      if (note === null) return;           // cancelled
+    }
+    await CN.rpc("admin_vehicle_review", { p_pin: PIN, p_id: id, p_status: status, p_note: note });
+    v.status = status;
+    v.review_note = note || null;
+    CN.toast(status === "approved" ? `${v.plate} approved.` : status === "rejected" ? `${v.plate} rejected.` : `${v.plate} moved back to waiting.`, "ok");
+    paintBadges();
+    render();
+    loadPulse();
   }
 
   async function refresh() {
@@ -137,7 +358,7 @@
         CN.rpc("admin_orders", { p_pin: PIN, p_event_id: null, p_limit: 300, p_search: null }),
         CN.rpc("admin_settings", { p_pin: PIN })
       ]);
-      cache = { stats, events: events || [], orders: orders || [], settings: settings || {}, analytics: cache.analytics };
+      cache = { ...cache, stats, events: events || [], orders: orders || [], settings: settings || {} };
     } catch (e) {
       CN.toast(e.message, "err");
     }
@@ -148,6 +369,7 @@
     if ((tab === "settings" || tab === "team") && !isOwner()) tab = "dash";   // belt as well as braces
     if (tab === "team") main.innerHTML = viewTeam();
     if (tab === "dash") main.innerHTML = viewDash();
+    if (tab === "vehicles") main.innerHTML = viewVehicles();
     if (tab === "events") main.innerHTML = viewEvents();
     if (tab === "orders") main.innerHTML = viewOrders();
     if (tab === "analytics") main.innerHTML = viewAnalytics();
@@ -183,7 +405,7 @@
         </div>
       </div>
 
-
+      ${briefingHtml()}
       <div class="stat-grid">
         <div class="stat accent"><div class="k">Revenue (paid)</div><div class="v">${esc(CN.amount(s.revenue))}</div></div>
         <div class="stat teal"><div class="k">Tickets sold</div><div class="v">${s.tickets_sold ?? 0}</div></div>
@@ -1587,6 +1809,16 @@
       if (act === "tg-test") return telegramTest();
       if (act === "change-pin") return changePin();
       if (act === "gate-toggle") return toggleGate();
+      if (act === "go-vehicles") return goTab("vehicles");
+      if (act === "veh-filter") { vehFilter = d.f; return render(); }
+      if (act === "veh-review") return reviewVehicle(d.id, d.s);
+      if (act === "veh-delete") {
+        const v = (cache.vehicles || []).find((x) => x.id === d.id);
+        if (!v || !confirm(`Delete the registration for ${v.plate} (${v.full_name}) for good?`)) return;
+        await CN.rpc("admin_vehicle_delete", { p_pin: PIN, p_id: v.id });
+        cache.vehicles = cache.vehicles.filter((x) => x.id !== v.id);
+        CN.toast("Deleted.", "ok"); paintBadges(); return render();
+      }
       if (act === "team-add") return teamModal(null);
       if (act === "team-edit") return teamModal((cache.team || []).find((m) => m.id === d.id));
       if (act === "team-delete") {

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Event — Coast Nation</title>
+<title>Vehicle registration — Coast Nation</title>
+<meta name="description" content="Register the car you're bringing to a Coast Nation event. Submit your details and a photo — we'll review and approve it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,22 +14,24 @@
 
 <header class="topbar" id="topbar"></header>
 
-<main class="wrap">
-  <div class="detail" id="detail">
-    <div><div class="skeleton" style="height:420px"></div></div>
-    <div><div class="skeleton" style="height:320px"></div></div>
+<main class="section">
+  <div class="wrap vr-wrap">
+    <div class="vr-intro">
+      <span class="badge info">Vehicle registration</span>
+      <h1>Bring your car to the show</h1>
+      <p class="muted">Tell us about the car you're bringing and add a photo. We review every registration and
+        get back to you once it's approved.</p>
+    </div>
+    <div id="vrView" class="panel vr-panel"><div class="center"><span class="spinner"></span></div></div>
   </div>
 </main>
 
+<footer class="footer" id="footer"></footer>
 <div id="modalHost"></div>
 
-<footer class="footer" id="footer"></footer>
-
 <script src="assets/js/vendor/supabase.js"></script>
-<script src="https://js.paystack.co/v1/inline.js"></script>
-<script src="https://checkout.flutterwave.com/v3.js"></script>
 <script src="assets/js/config.js?v=202610061900"></script>
 <script src="assets/js/common.js?v=202610061900"></script>
-<script src="assets/js/event.js?v=202610061900"></script>
+<script src="assets/js/vehicles.js?v=202610061900"></script>
 </body>
 </html>

@@ -658,3 +658,66 @@ figure.chart figcaption p{margin:0}
 .gate-code-row input::placeholder{letter-spacing:.18em;opacity:.45}
 .ticket-no{margin-top:8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .ticket-no .ticket-code{font-size:1.25rem;font-weight:700;letter-spacing:.1em}
+
+/* ---------- vehicle registration (public) ---------- */
+.vr-wrap{max-width:680px}
+.vr-intro{margin:18px 0 20px}
+.vr-intro h1{font-size:clamp(1.7rem,4vw,2.4rem);margin:12px 0 6px}
+.vr-panel{padding:24px}
+.vr-h{font-size:1rem;margin:22px 0 12px;color:var(--sand);letter-spacing:.02em}
+.vr-plate{font-family:ui-monospace,'SF Mono',Menlo,monospace;letter-spacing:.08em;font-weight:600}
+.vr-photo{position:relative;display:grid;place-items:center;min-height:190px;border:1.5px dashed var(--line-strong);border-radius:var(--radius-sm);background:rgba(255,255,255,.025);cursor:pointer;overflow:hidden;margin:0;text-transform:none;letter-spacing:0;font-weight:400}
+.vr-photo:hover{border-color:var(--teal)}
+.vr-photo img{width:100%;max-height:340px;object-fit:cover;display:block}
+.vr-photo-hint{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--text);padding:20px;text-align:center}
+.vr-photo-hint svg{color:var(--teal)}
+.vr-photo-change{position:absolute;right:10px;bottom:10px;background:rgba(6,13,20,.8);border:1px solid var(--line-strong);padding:6px 12px;border-radius:999px;font-size:.8rem;color:var(--text)}
+@media (max-width:620px){.vr-panel .field-row,.vr-panel .field-row-3{grid-template-columns:1fr}}
+@media (max-width:480px){.nav-hide-sm{display:none}}
+
+/* ---------- admin: bell + activity ---------- */
+.side-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bell{position:relative;width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+.bell:hover{border-color:var(--line-strong)}
+.bell svg{width:20px;height:20px}
+.bell-dot{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--danger);color:#fff;font-size:.7rem;font-weight:700;display:grid;place-items:center;border:2px solid var(--bg);line-height:1}
+.bell-panel{position:fixed;z-index:70;top:72px;left:16px;width:min(400px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 96px));display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line-strong);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.bell-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.bell-brief{padding:12px 16px;border-bottom:1px solid var(--line);background:rgba(46,230,197,.05);font-size:.9rem}
+.bell-brief p{margin:0 0 4px}
+.bell-list{overflow-y:auto;padding:4px 0 8px}
+.bell-day{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:12px 16px 4px}
+.bell-item{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:9px 16px;cursor:pointer;font:inherit;font-size:.9rem;line-height:1.4}
+.bell-item:hover{background:rgba(255,255,255,.04)}
+.bell-item.new{background:rgba(255,107,61,.07)}
+.bell-item.new .bell-txt::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--coral);margin-right:6px;vertical-align:1px}
+.bell-txt{display:flex;flex-direction:column;gap:2px}
+.bell-ic{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;background:var(--card-2)}
+.bell-ic svg{width:16px;height:16px}
+.bell-ic.sale{color:var(--ok)}
+.bell-ic.vehicle{color:var(--sand)}
+.bell-ic.checkin{color:var(--teal)}
+@media (max-width:920px){.bell-panel{top:64px;left:auto;right:16px}}
+
+.briefing{margin-bottom:22px;border-color:rgba(46,230,197,.3);background:linear-gradient(135deg,rgba(46,230,197,.07),rgba(255,107,61,.05))}
+.briefing-head{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.briefing-ic{width:38px;height:38px;flex:none;border-radius:12px;display:grid;place-items:center;background:rgba(46,230,197,.14);color:var(--teal)}
+.briefing-ic svg{width:20px;height:20px}
+.briefing p{margin:0 0 6px;font-size:.98rem;color:#d6e3ee}
+.briefing p b{color:var(--text)}
+.briefing .btn{margin-top:8px}
+
+.nav-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--coral);color:#fff;font-size:.72rem;font-weight:700;display:inline-grid;place-items:center}
+.side-nav button .nav-count.hidden{display:none}
+
+/* ---------- admin: registrations ---------- */
+.veh-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.veh-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column}
+.veh-photo{display:block;aspect-ratio:16/10;background:var(--card-2)}
+.veh-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.veh-body{padding:16px;display:flex;flex-direction:column;flex:1}
+.veh-title{font-family:'Sora',sans-serif;font-weight:700;font-size:1.08rem}
+.veh-plate{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:6px;background:#f5d547;color:#111;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-weight:700;letter-spacing:.08em;font-size:.95rem}
+.veh-note{margin-top:8px;color:#c7d6e2;font-style:italic}
+.veh-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:14px}
+.veh-approve{background:var(--ok);color:#04140d;border-color:var(--ok);font-weight:700}
