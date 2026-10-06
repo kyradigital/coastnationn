@@ -77,7 +77,7 @@
 
     $("#vPhoto").onchange = pickPhoto;
     $("#vPlate").oninput = (e) => { e.target.value = e.target.value.toUpperCase(); };
-    $("#vForm").onsubmit = submit;
+    $("#vrForm").onsubmit = submit;
   }
 
   function photoHint() {
