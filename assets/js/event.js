@@ -87,11 +87,12 @@
             <div class="total-row"><span class="muted">Total</span><b id="total">${CN.amount(0)}</b></div>
             <button class="btn btn-primary btn-block" id="checkoutBtn" disabled>Select tickets to continue</button>
             <p class="small muted center" style="margin:12px 0 0">Your QR ticket is issued instantly after payment.</p>` : ""}
-          ${!past ? `<a class="vr-link" href="vehicles.html?e=${encodeURIComponent(ev.id)}">Bringing a car? <b>Register it here →</b></a>` : ""}
+          ${!past ? `<a class="vr-link hidden" data-vr href="vehicles.html?e=${encodeURIComponent(ev.id)}">Bringing a car? <b>Register it here →</b></a>` : ""}
         </div>
       </aside>`;
 
     if (!past) wireQty();
+    CN.showVehicleLinks();
   }
 
   function info(icon, k, v) {

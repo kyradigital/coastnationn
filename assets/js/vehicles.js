@@ -21,7 +21,17 @@
   } catch (e) { /* the form still works without an event list */ }
 
   let photo = null;          // { blob, url } once picked and shrunk
-  form();
+  if (!CN.vehicleRegOpen(await CN.settings())) closed();
+  else form();
+
+  function closed() {
+    view.innerHTML = `
+      <div class="center" style="padding:18px 0">
+        <h2 style="margin:0 0 8px">Registration is closed</h2>
+        <p class="muted" style="margin:0 auto 20px;max-width:400px">We're not taking vehicle registrations right now. Check back soon, or follow us for the next round.</p>
+        <a class="btn btn-primary" href="index.html">Browse events</a>
+      </div>`;
+  }
 
   function form(keep = {}) {
     const preselect = CN.qs("e") || keep.event_id || (events[0] && events[0].id) || "";
@@ -166,6 +176,7 @@
         p_make: d.make, p_model: d.model, p_year: d.year ? Number(d.year) : null, p_colour: d.colour || null,
         p_plate: d.plate, p_photo_url: photoUrl, p_notes: d.notes || null
       });
+      if (r && r.closed) return closed();
       if (!r || !r.ok) throw new Error((r && r.message) || "Couldn't submit — try again.");
       done(r.reference, d);
     } catch (err) {

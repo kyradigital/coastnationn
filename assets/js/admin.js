@@ -295,6 +295,7 @@
         <div><h1 style="font-size:1.8rem;margin:0">Vehicle registrations</h1>
           <p class="muted small" style="margin:4px 0 0">Cars submitted on the public <a href="vehicles.html" target="_blank" style="color:var(--teal)">registration page</a>. Approve the ones you want at the event.</p></div>
       </div>
+      ${vehSwitch()}
       <div class="filters" style="margin-bottom:18px">
         ${chip("pending", "Waiting")}${chip("approved", "Approved")}${chip("rejected", "Rejected")}${chip("all", "All")}
       </div>
@@ -302,6 +303,31 @@
         : !rows.length ? `<div class="empty"><h3>${vehFilter === "pending" ? "Nothing waiting" : "Nothing here"}</h3>
             <p class="small">${vehFilter === "pending" ? "New registrations land here for you to approve." : "Try another filter."}</p></div>`
         : `<div class="veh-grid">${rows.map(vehCard).join("")}</div>`}`;
+  }
+
+  const vehRegOpen = () => CN.vehicleRegOpen(cache.settings);
+
+  function vehSwitch() {
+    const on = vehRegOpen();
+    return `
+      <div class="panel gate-switch ${on ? "on" : "off"}">
+        <div>
+          <div style="font-weight:700;font-size:1.05rem">${on ? "Registrations are OPEN" : "Registrations are CLOSED"}</div>
+          <div class="small muted">${on
+            ? "The registration page is live and linked from the menu, the homepage banner and the event page."
+            : "The links are hidden everywhere and the form shows “Registration is closed”."}</div>
+        </div>
+        <button class="btn ${on ? "btn-danger" : "btn-on"}" data-act="veh-toggle">${on ? "Turn off registrations" : "TURN ON REGISTRATIONS"}</button>
+      </div>`;
+  }
+
+  async function toggleVehReg() {
+    const next = !vehRegOpen();
+    if (!next && !confirm("Close vehicle registration? The links disappear from the site and nobody can submit until you turn it back on.")) return;
+    const r = await CN.rpc("admin_set_vehicle_reg_open", { p_pin: PIN, p_open: next });
+    cache.settings = { ...(cache.settings || {}), vehicle_registration_open: r.open ? "true" : "false" };
+    CN.toast(r.open ? "Registrations are open." : "Registrations are closed.", "ok");
+    render();
   }
 
   function vehCard(v) {
@@ -1810,6 +1836,7 @@
       if (act === "change-pin") return changePin();
       if (act === "gate-toggle") return toggleGate();
       if (act === "go-vehicles") return goTab("vehicles");
+      if (act === "veh-toggle") return toggleVehReg();
       if (act === "veh-filter") { vehFilter = d.f; return render(); }
       if (act === "veh-review") return reviewVehicle(d.id, d.s);
       if (act === "veh-delete") {

@@ -119,7 +119,7 @@ const CN = (() => {
           <div class="footer-links" style="justify-content:flex-end;margin-bottom:10px">
             <a href="index.html">Events</a>
             <a href="ticket.html">Find my ticket</a>
-            <a href="vehicles.html">Vehicle registration</a>
+            <a href="vehicles.html" data-vr class="hidden">Vehicle registration</a>
             <a id="waLink" href="#" target="_blank" rel="noopener">WhatsApp us</a>
             <a href="portal.html">OFC Portal</a>
           </div>
@@ -131,6 +131,7 @@ const CN = (() => {
       if (wa && s.contact_whatsapp) wa.href = "https://wa.me/" + s.contact_whatsapp.replace(/\D/g, "");
       const sk = $("#secretKey", el);
       if (sk && s.site_name) sk.innerHTML = `&copy; ${y} All rights reserved &middot; ${esc(s.site_name)}`;
+      showVehicleLinks();
       applyBrand();
     });
     armSecret($("#secretKey", el));
@@ -183,12 +184,22 @@ const CN = (() => {
           <div><span data-brand-name>Coast Nation</span><span class="sub">Tickets, Kenya</span></div>
         </a>
         <div class="nav-actions">
-          <a class="btn btn-ghost btn-sm nav-hide-sm" href="vehicles.html">Register a car</a>
+          <a class="btn btn-ghost btn-sm nav-hide-sm hidden" data-vr href="vehicles.html">Register a car</a>
           <a class="btn btn-ghost btn-sm" href="ticket.html">My tickets</a>
           ${opts.back ? `<a class="btn btn-soft btn-sm" href="index.html">All events</a>` : ""}
         </div>
       </div>`;
     applyBrand();
+    showVehicleLinks();
+  }
+
+  /* ---------- vehicle registration links: only while registration is open ----------
+     Every link to vehicles.html carries data-vr and starts hidden, so a closed
+     registration never flashes on screen. Missing setting = open. */
+  const vehicleRegOpen = (s) => String((s || {}).vehicle_registration_open) !== "false";
+  async function showVehicleLinks() {
+    const open = vehicleRegOpen(await settings());
+    $$("[data-vr]").forEach((el) => el.classList.toggle("hidden", !open));
   }
 
   /* ---------- misc ---------- */
@@ -212,6 +223,7 @@ const CN = (() => {
   return {
     db, $, $$, esc, money, amount, prettyDate, prettyTime, prettyDateTime, dateParts, isPast,
     toast, settings, forgetSettings, rpc, renderFooter, renderTopbar, applyBrand, armSecret, qs, initials,
+    showVehicleLinks, vehicleRegOpen,
     ticketsLeft, salesClosed, fromPrice,
     get currency() { return currency; }
   };
