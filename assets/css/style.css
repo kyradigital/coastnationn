@@ -752,9 +752,9 @@ table.orders .num{text-align:right;white-space:nowrap}
   table.orders tr{display:grid;grid-template-columns:1fr auto;column-gap:12px;align-items:start;padding:10px 2px;border-top:1px solid var(--line)}
   table.orders tr:first-child{border-top:0}
   table.orders td{display:block;padding:0;border:0}
-  .orders .c-buyer{grid-column:1;grid-row:1}
+  .orders .c-buyer{grid-column:1;grid-row:1 / span 2}
   .orders .c-amt{grid-column:2;grid-row:1}
-  .orders .c-when{grid-column:2;grid-row:2;text-align:right;font-size:.72rem}
+  .orders .c-when{grid-column:2;grid-row:2;text-align:right;font-size:.72rem;align-self:end}
   .orders .hide-m, .orders .o-more{display:none}
   .orders.full tr[data-row]{cursor:pointer}
   .orders.full tr.open{background:rgba(255,255,255,.03);border-radius:12px;padding:10px}
