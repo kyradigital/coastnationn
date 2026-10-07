@@ -33,38 +33,26 @@
       </div>`;
   }
 
+  // the car goes on the event in the link (?e=…), else the next event coming up
+  const targetEvent = () => (events.find((e) => e.id === CN.qs("e")) || events[0] || {}).id || "";
+
   function form(keep = {}) {
-    const preselect = CN.qs("e") || keep.event_id || (events[0] && events[0].id) || "";
     view.innerHTML = `
       <form id="vrForm" novalidate>
-        ${events.length ? `
-          <div class="field"><label for="vEvent">Event</label>
-            <select id="vEvent">${events.map((e) =>
-              `<option value="${e.id}" ${e.id === preselect ? "selected" : ""}>${esc(e.name)} · ${esc(CN.prettyDate(e.event_date))}</option>`).join("")}
-            </select></div>` : ""}
-
-        <h3 class="vr-h">You</h3>
-        <div class="field"><label for="vName">Full name</label>
-          <input id="vName" autocomplete="name" placeholder="Jina lako kamili" value="${esc(keep.name || "")}"></div>
+        <h3 class="vr-h" style="margin-top:0">You</h3>
         <div class="field-row">
+          <div class="field"><label for="vName">Full name</label>
+            <input id="vName" autocomplete="name" placeholder="Jina lako kamili" value="${esc(keep.name || "")}"></div>
           <div class="field"><label for="vPhone">Phone</label>
             <input id="vPhone" inputmode="tel" autocomplete="tel" placeholder="07XX XXX XXX" value="${esc(keep.phone || "")}"></div>
-          <div class="field"><label for="vEmail">Email <span class="muted">(optional)</span></label>
-            <input id="vEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(keep.email || "")}"></div>
         </div>
 
         <h3 class="vr-h">Your car</h3>
-        <div class="field-row">
+        <div class="field-row-3">
           <div class="field"><label for="vMake">Make</label>
             <input id="vMake" placeholder="e.g. Subaru" autocapitalize="words" value="${esc(keep.make || "")}"></div>
           <div class="field"><label for="vModel">Model</label>
             <input id="vModel" placeholder="e.g. WRX STI" value="${esc(keep.model || "")}"></div>
-        </div>
-        <div class="field-row-3">
-          <div class="field"><label for="vYear">Year <span class="muted">(optional)</span></label>
-            <input id="vYear" inputmode="numeric" maxlength="4" placeholder="2015" value="${esc(keep.year || "")}"></div>
-          <div class="field"><label for="vColour">Colour <span class="muted">(optional)</span></label>
-            <input id="vColour" placeholder="Blue" value="${esc(keep.colour || "")}"></div>
           <div class="field"><label for="vPlate">Number plate</label>
             <input id="vPlate" class="vr-plate" placeholder="KCA 123A" autocapitalize="characters" autocomplete="off" spellcheck="false" value="${esc(keep.plate || "")}"></div>
         </div>
@@ -76,9 +64,6 @@
           <input type="file" id="vPhoto" accept="image/*" class="hidden">
           <div class="small muted" style="margin-top:6px">A clear photo of the whole car, number plate visible if you can. Max 5MB.</div>
         </div>
-
-        <div class="field"><label for="vNotes">Anything we should know? <span class="muted">(optional)</span></label>
-          <textarea id="vNotes" placeholder="Mods, club, if you're bringing a crew…" style="min-height:80px">${esc(keep.notes || "")}</textarea></div>
 
         <div id="vMsg" class="small" style="min-height:20px;color:var(--danger);margin-bottom:8px"></div>
         <button class="btn btn-primary btn-block" id="vGo" type="submit">Submit registration</button>
@@ -135,16 +120,12 @@
 
   function read() {
     return {
-      event_id: $("#vEvent") ? $("#vEvent").value : "",
+      event_id: targetEvent(),
       name: $("#vName").value.trim(),
       phone: $("#vPhone").value.trim(),
-      email: $("#vEmail").value.trim(),
       make: $("#vMake").value.trim(),
       model: $("#vModel").value.trim(),
-      year: $("#vYear").value.trim(),
-      colour: $("#vColour").value.trim(),
-      plate: $("#vPlate").value.trim(),
-      notes: $("#vNotes").value.trim()
+      plate: $("#vPlate").value.trim()
     };
   }
 
@@ -155,7 +136,6 @@
     const missing = [!d.name && "your name", !d.phone && "your phone", !d.make && "the make", !d.model && "the model",
                      !d.plate && "the number plate", !photo && "a photo"].filter(Boolean);
     if (missing.length) { msg.textContent = "Please add " + missing.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
-    if (d.year && !/^\d{4}$/.test(d.year)) { msg.textContent = "Year should be 4 digits, like 2015."; return; }
     msg.textContent = "";
 
     const btn = $("#vGo");
@@ -172,9 +152,9 @@
 
       btn.innerHTML = '<span class="spinner"></span> Submitting…';
       const r = await CN.rpc("submit_vehicle_registration", {
-        p_event_id: d.event_id || null, p_full_name: d.name, p_phone: d.phone, p_email: d.email || null,
-        p_make: d.make, p_model: d.model, p_year: d.year ? Number(d.year) : null, p_colour: d.colour || null,
-        p_plate: d.plate, p_photo_url: photoUrl, p_notes: d.notes || null
+        p_event_id: d.event_id || null, p_full_name: d.name, p_phone: d.phone, p_email: null,
+        p_make: d.make, p_model: d.model, p_year: null, p_colour: null,
+        p_plate: d.plate, p_photo_url: photoUrl, p_notes: null
       });
       if (r && r.closed) return closed();
       if (!r || !r.ok) throw new Error((r && r.message) || "Couldn't submit — try again.");
@@ -204,7 +184,7 @@
         </div>
       </div>`;
     if (photo) { URL.revokeObjectURL(photo.url); photo = null; }
-    $("#vAnother").onclick = () => form({ name: d.name, phone: d.phone, email: d.email, event_id: d.event_id });
+    $("#vAnother").onclick = () => form({ name: d.name, phone: d.phone });
     view.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 })();

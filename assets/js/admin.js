@@ -454,7 +454,7 @@
               <button class="btn btn-soft btn-sm" data-act="go-analytics">Analytics</button>
               <button class="btn btn-soft btn-sm" data-act="go-orders">See all</button>
             </div></div>
-          ${recent.length ? ordersTable(recent) : `<p class="muted small">No purchases yet.</p>`}
+          ${recent.length ? ordersTable(recent, { compact: true }) : `<p class="muted small">No purchases yet.</p>`}
         </div>`}`;
   }
 
@@ -598,46 +598,57 @@
       </div>` : ""}`;
   }
 
-  function ordersTable(rows) {
+  /* One table for the dashboard (compact: who, what, how much, when) and the
+     Purchases tab (full: + ticket codes, delivery, actions). On phones every row
+     collapses to buyer · amount · time; in the full table a tap opens the rest. */
+  function shortWhen(ts) {
+    const d = new Date(ts);
+    if (isNaN(d)) return "";
+    const time = d.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" });
+    const today = new Date().toDateString();
+    if (d.toDateString() === today) return "Today " + time;
+    if (d.toDateString() === new Date(Date.now() - 864e5).toDateString()) return "Yesterday " + time;
+    return d.toLocaleDateString("en-KE", { day: "numeric", month: "short" }) + " " + time;
+  }
+
+  function ordersTable(rows, opts = {}) {
+    const full = !opts.compact;
     return `
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="orders ${full ? "full" : "compact"}">
         <thead><tr>
-          <th>Reference</th><th>Buyer</th><th>Event</th><th>Tickets</th><th>Amount</th><th>Status</th><th>Ticket</th><th>When</th><th></th>
+          <th>Buyer</th><th class="hide-m">Tickets</th><th class="num">Amount</th><th>When</th>${full ? `<th class="hide-m"></th>` : ""}
         </tr></thead>
         <tbody>
         ${rows.map((o) => {
           const tix = (o.items || []).reduce((a, i) => a + i.quantity, 0);
-          const badge = o.status === "paid"
-            ? `<span class="badge ok">Paid</span>${o.payment_verified ? "" : ` <span class="badge warn" title="Payment reported by the browser but not verified with the gateway">unverified</span>`}`
-            : o.status === "cancelled" ? `<span class="badge bad">Cancelled</span>`
-              : `<span class="badge warn">Pending</span>`;
-          return `<tr>
-            <td><span class="ticket-code" style="font-size:.82rem">${esc(o.reference)}</span></td>
-            <td>${esc(o.buyer_name)}<div class="small muted">${esc(o.buyer_phone)}<br>${esc(o.buyer_email)}</div></td>
-            <td>${esc(o.event_name)}</td>
-            <td>${tix}<div class="small muted">${esc((o.items || []).map((i) => i.name + "×" + i.quantity).join(", "))}</div>
-                ${(o.tickets || []).length ? `<div class="small muted" style="margin-top:3px">${(o.tickets || []).map((t) =>
-                  `<span class="ticket-code" style="font-size:.72rem">${esc(t.code)}</span>${t.status === "used" ? " <span class=\"badge dim\">used</span>" : t.status === "void" ? " <span class=\"badge bad\">void</span>" : ""}`).join("<br>")}</div>` : ""}</td>
-            <td><b>${esc(CN.amount(o.total_amount))}</b></td>
-            <td>${badge}</td>
-            <td class="small">
-              ${o.contact_verified ? `<span class="badge ok" title="Email verified by code before paying">verified</span><br>` : `<span class="badge dim">unverified</span><br>`}
-              <span class="muted">${esc(o.delivery_method || "email")}</span>
-              ${o.delivered_at ? `<br><span class="muted" style="font-size:.72rem">sent ${esc(CN.prettyDateTime(o.delivered_at))}</span>`
-                : o.delivery_error ? `<br><span style="color:var(--danger);font-size:.72rem">not sent</span>` : ""}
+          const status = o.status === "paid"
+            ? (o.payment_verified ? "" : `<span class="badge warn" title="Payment reported by the browser but not verified with the gateway">unverified</span>`)
+            : o.status === "cancelled" ? `<span class="badge bad">Cancelled</span>` : `<span class="badge warn">Pending</span>`;
+          const sent = o.delivered_at ? `<span class="muted">sent</span>` : o.delivery_error ? `<span style="color:var(--danger)">not sent</span>` : "";
+          return `<tr${full ? ` data-row` : ""}>
+            <td class="c-buyer">
+              <div class="o-name">${esc(o.buyer_name)}</div>
+              <div class="o-sub">${esc(o.buyer_phone || "")}${full ? `<span class="hide-m"> · ${esc(o.buyer_email || "")}</span>` : ""}</div>
+              ${full ? `<div class="o-sub o-more"><span class="ticket-code">${esc(o.reference)}</span>${sent ? " · " + sent : ""}</div>` : ""}
             </td>
-            <td class="small muted">${esc(CN.prettyDateTime(o.created_at))}</td>
-            <td>
+            <td class="c-tix hide-m">
+              <b>${tix}</b> <span class="muted">${esc((o.items || []).map((i) => i.name + (i.quantity > 1 ? " ×" + i.quantity : "")).join(", "))}</span>
+              ${full && (o.tickets || []).length ? `<div class="o-codes">${(o.tickets || []).map((t) =>
+                `<span class="ticket-code">${esc(t.code)}</span>${t.status === "used" ? ` <span class="badge dim">used</span>` : t.status === "void" ? ` <span class="badge bad">void</span>` : ""}`).join(" ")}</div>` : ""}
+            </td>
+            <td class="c-amt num"><b>${esc(CN.amount(o.total_amount))}</b>${status ? `<div>${status}</div>` : ""}</td>
+            <td class="c-when">${esc(shortWhen(o.created_at))}</td>
+            ${full ? `<td class="c-act hide-m">
               <div class="row-actions">
               ${o.status === "pending" ? `<button class="btn btn-primary btn-sm" data-act="mark-paid" data-o="${o.id}">Mark paid</button>` : ""}
-              ${o.status !== "cancelled" ? `<button class="btn btn-soft btn-sm" data-act="cancel-order" data-o="${o.id}">Cancel</button>` : ""}
               ${o.status === "paid" ? `<button class="btn btn-soft btn-sm" data-act="resend-ticket" data-o="${o.id}" title="Email the ticket again">Resend</button>` : ""}
               ${o.status === "paid" && cache.settings.telegram_chat_id ? `<button class="btn btn-soft btn-sm" data-act="tg-resend" data-o="${o.id}" title="Send this sale to Telegram again">Re-alert</button>` : ""}
-              <button class="btn btn-danger btn-sm" data-act="del-order" data-o="${o.id}" title="Delete this purchase for good">
+              ${o.status !== "cancelled" ? `<button class="btn btn-soft btn-sm" data-act="cancel-order" data-o="${o.id}">Cancel</button>` : ""}
+              <button class="btn btn-danger btn-sm" data-act="del-order" data-o="${o.id}" title="Delete this purchase for good" aria-label="Delete">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>
               </button>
               </div>
-            </td>
+            </td>` : ""}
           </tr>`;
         }).join("")}
         </tbody></table></div>`;
@@ -1535,6 +1546,11 @@
      ========================================================== */
   function wire() {
     $$("[data-act]").forEach((el) => (el.onclick = () => handle(el.dataset.act, el.dataset)));
+    // phones: tap a purchase to show its tickets and buttons
+    $$("tr[data-row]").forEach((tr) => (tr.onclick = (e) => {
+      if (e.target.closest("button, a") || !matchMedia("(max-width:640px)").matches) return;
+      tr.classList.toggle("open");
+    }));
     if ($("#tgPanel")) tgPanel();
 
     const lf = $("#ledgerFilter");

@@ -725,3 +725,40 @@ figure.chart figcaption p{margin:0}
 .vr-link{display:block;margin-top:14px;padding:12px 14px;border:1px dashed var(--line-strong);border-radius:var(--radius-sm);font-size:.9rem;color:var(--muted);text-align:center}
 .vr-link b{color:var(--sand)}
 .vr-link:hover{border-color:var(--sand)}
+
+/* ---------- purchases table: tight, no sideways scroll ---------- */
+table.orders{min-width:0;font-size:.84rem}
+table.orders th{padding:8px 12px;font-size:.66rem}
+table.orders td{padding:8px 12px;line-height:1.35}
+table.orders .num{text-align:right;white-space:nowrap}
+.orders .o-name{font-weight:600}
+.orders .o-sub{font-size:.76rem;color:var(--muted)}
+.orders .o-sub .ticket-code{font-size:.72rem;letter-spacing:.04em}
+.orders .c-tix{font-size:.8rem}
+.orders .o-codes{margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 8px}
+.orders .o-codes .ticket-code{font-size:.7rem;letter-spacing:.04em}
+.orders .c-when{white-space:nowrap;color:var(--muted);font-size:.78rem}
+.orders .badge{font-size:.62rem;padding:2px 7px;margin-top:2px}
+.orders .row-actions{min-width:0;gap:4px;flex-wrap:nowrap}
+.orders .row-actions .btn-sm{padding:5px 9px;font-size:.74rem}
+.orders.compact .o-more{display:none}
+@media (max-width:1180px){.orders.full .c-act .row-actions{flex-wrap:wrap}}
+
+/* phones: buyer · amount · time on two lines; tap a full row for the rest */
+@media (max-width:640px){
+  .table-wrap:has(table.orders){border:0;border-radius:0;overflow:visible}
+  table.orders thead{display:none}
+  table.orders, table.orders tbody{display:block}
+  table.orders tr{display:grid;grid-template-columns:1fr auto;column-gap:12px;align-items:start;padding:10px 2px;border-top:1px solid var(--line)}
+  table.orders tr:first-child{border-top:0}
+  table.orders td{display:block;padding:0;border:0}
+  .orders .c-buyer{grid-column:1;grid-row:1}
+  .orders .c-amt{grid-column:2;grid-row:1}
+  .orders .c-when{grid-column:2;grid-row:2;text-align:right;font-size:.72rem}
+  .orders .hide-m, .orders .o-more{display:none}
+  .orders.full tr[data-row]{cursor:pointer}
+  .orders.full tr.open{background:rgba(255,255,255,.03);border-radius:12px;padding:10px}
+  .orders.full tr.open .o-more{display:block}
+  .orders.full tr.open td.hide-m{display:block;grid-column:1 / -1;margin-top:8px}
+  .orders.full tr.open .row-actions{justify-content:flex-start;flex-wrap:wrap}
+}
