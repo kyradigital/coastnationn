@@ -762,3 +762,9 @@ table.orders .num{text-align:right;white-space:nowrap}
   .orders.full tr.open td.hide-m{display:block;grid-column:1 / -1;margin-top:8px}
   .orders.full tr.open .row-actions{justify-content:flex-start;flex-wrap:wrap}
 }
+
+/* ticket tagline badge ("25 LEFT!") */
+.tt-tagline{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:var(--coral);color:#fff;font-family:'Inter',sans-serif;font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1.5;vertical-align:1px;animation:ttPulse 2.2s ease-in-out infinite}
+.price small .tt-tagline{margin-left:4px}
+@keyframes ttPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,61,.55)}50%{box-shadow:0 0 0 5px rgba(255,107,61,0)}}
+@media (prefers-reduced-motion: reduce){.tt-tagline{animation:none}}

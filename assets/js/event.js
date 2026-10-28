@@ -118,7 +118,7 @@
     return `
       <div class="tt-option" data-tt="${t.id}">
         <div>
-          <div class="name">${CN.esc(t.name)} ${note}</div>
+          <div class="name">${CN.esc(t.name)} ${note}${!closed && t.tagline ? ` <span class="tt-tagline">${CN.esc(t.tagline)}</span>` : ""}</div>
           ${t.description ? `<div class="small muted">${CN.esc(t.description)}</div>` : ""}
           <div class="small" style="color:var(--sand);margin-top:2px">${CN.money(t.price)}</div>
         </div>

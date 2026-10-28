@@ -531,7 +531,7 @@
     return `
       <div class="tt-row${t.is_active ? "" : " off"}">
         <div style="flex:1;min-width:170px">
-          <div style="font-weight:600">${esc(t.name)} ${state}</div>
+          <div style="font-weight:600">${esc(t.name)} ${state}${t.tagline ? ` <span class="tt-tagline">${esc(t.tagline)}</span>` : ""}</div>
           <div class="small muted">${esc(CN.money(t.price))} · ${sold} sold${t.quantity_total > 0 ? ` of ${t.quantity_total} (${left} left)` : " · unlimited"}</div>
           ${t.quantity_total > 0 ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ""}
         </div>
@@ -1484,6 +1484,9 @@
               <input id="t_name" value="${esc(t.name || "")}" placeholder="Early Bird · Regular · VIP · Table of 6"></div>
             <div class="field"><label>What's included (optional)</label>
               <input id="t_desc" value="${esc(t.description || "")}" placeholder="e.g. Entry + one welcome drink"></div>
+            <div class="field"><label>Tagline (optional) — shows as a badge on the event card</label>
+              <input id="t_tagline" maxlength="40" value="${esc(t.tagline || "")}" placeholder="e.g. 25 LEFT!  ·  SELLING FAST  ·  LAST CHANCE">
+              <div class="small muted" style="margin-top:6px">Shown while this is the ticket on sale. Leave empty for no badge.</div></div>
             <div class="field-row">
               <div class="field"><label>Price (${esc(cache.settings.currency || "KES")}) — 0 for free</label>
                 <input id="t_price" type="number" min="0" step="1" value="${esc(t.price ?? 1000)}"></div>
@@ -1516,6 +1519,7 @@
             event_id: eventId,
             name,
             description: $("#t_desc").value.trim(),
+            tagline: $("#t_tagline").value.trim(),
             price: Number($("#t_price").value || 0),
             quantity_total: Number($("#t_qty").value || 0),
             sales_end: $("#t_end").value ? new Date($("#t_end").value).toISOString() : "",

@@ -96,7 +96,7 @@
     const priceBlock = past
       ? `<div class="price"><small>Tickets</small>Closed</div>`
       : onSale
-        ? `<div class="price"><small>Current ticket</small>${CN.esc(onSale.name)} &middot; ${CN.esc(CN.money(onSale.price))}</div>`
+        ? `<div class="price"><small>Current ticket${onSale.tagline ? ` <span class="tt-tagline">${CN.esc(onSale.tagline)}</span>` : ""}</small>${CN.esc(onSale.name)} &middot; ${CN.esc(CN.money(onSale.price))}</div>`
         : types.length
           ? `<div class="price"><small>Tickets</small>Sold out</div>`
           : `<div class="price"><small>Tickets</small>Coming soon</div>`;
