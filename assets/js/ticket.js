@@ -58,7 +58,15 @@
   }
 
   function lookupForm(msg) {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem("cn_my_orders") || "[]"); } catch (e) { /* none */ }
     view.innerHTML = `
+      ${saved.length ? `
+        <div class="panel" style="max-width:460px;margin:0 auto 16px">
+          <h3 style="margin:0 0 10px">Bought on this phone</h3>
+          ${saved.map((r) => `<a class="btn btn-soft btn-block" style="margin-top:8px;justify-content:space-between" href="ticket.html?ref=${encodeURIComponent(r)}">
+            <span class="ticket-code" style="font-size:.9rem">${CN.esc(r)}</span><span>Show →</span></a>`).join("")}
+        </div>` : ""}
       <div class="panel" style="max-width:460px;margin:0 auto">
         <h2>Find my ticket</h2>
         <p class="muted small">Enter the order reference from your confirmation (it looks like CN-260921-A1B2C3).</p>

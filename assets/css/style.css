@@ -791,3 +791,21 @@ table.orders .num{text-align:right;white-space:nowrap}
 .verdict.bad .verdict-timer{color:var(--danger)}
 @keyframes verdictTimer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 .verdict.ok .verdict-title{font-size:1.75rem}
+
+/* ---------- gate sales: one ticket, a quantity, pay ---------- */
+.gs-wrap{grid-column:1/-1;display:flex;justify-content:center}
+.gs-card{width:100%;max-width:460px;padding:24px;border-color:rgba(255,107,61,.35);background:linear-gradient(160deg,var(--card),#1a2230)}
+.gs-head{display:flex;gap:12px;align-items:center}
+.gs-poster{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none;border:1px solid var(--line-strong)}
+.gs-poster.placeholder{display:grid;place-items:center;background:linear-gradient(135deg,#123044,#1d4a4a);font-family:Sora,sans-serif;font-weight:700;color:rgba(255,255,255,.4)}
+.gs-kicker{font-weight:700;letter-spacing:.02em}
+.gs-title{font-size:clamp(1.6rem,6vw,2.1rem);text-transform:uppercase;letter-spacing:-.01em;margin:20px 0 16px}
+.gs-ticket{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border-radius:16px;background:rgba(255,107,61,.1);border:1px solid rgba(255,107,61,.35)}
+.gs-name{font-family:'Sora',sans-serif;font-weight:700;font-size:1.25rem}
+.gs-price{font-family:'Sora',sans-serif;font-weight:800;font-size:1.35rem;color:var(--coral);white-space:nowrap}
+.gs-qty-row{display:flex;justify-content:space-between;align-items:center;margin:18px 0}
+.gs-qty{display:flex;align-items:center;gap:14px}
+.gs-qty button{width:48px;height:48px;border-radius:14px;border:1px solid var(--line-strong);background:var(--card-2);color:var(--text);font-size:1.5rem;cursor:pointer}
+.gs-qty button:disabled{opacity:.35;cursor:not-allowed}
+.gs-qty b{font-family:'Sora',sans-serif;font-size:1.6rem;min-width:28px;text-align:center}
+.gs-pay{padding:17px;font-size:1.1rem}

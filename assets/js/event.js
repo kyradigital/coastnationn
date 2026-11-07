@@ -23,7 +23,10 @@
   if (error || !data) { host.innerHTML = notFound(); return; }
   ev = data;
   document.title = ev.name + " — Coast Nation";
-  render();
+  // gate check-ins on + a gate ticket for this event = the page sells only that, no details needed
+  const gateTT = (ev.ticket_types || []).find((t) => t.gate_only && t.is_active);
+  if (String(cfg.gate_checkin_open) === "true" && gateTT && !CN.isPast(ev.event_date)) renderGate(gateTT);
+  else render();
 
   /* ---------------- render ---------------- */
   function notFound() {
@@ -36,7 +39,7 @@
   function render() {
     const past = CN.isPast(ev.event_date);
     const types = (ev.ticket_types || [])
-      .filter((t) => t.is_active)
+      .filter((t) => t.is_active && !t.gate_only)
       .sort((a, b) => (a.sort_order - b.sort_order) || Number(a.price) - Number(b.price));
 
     const poster = ev.image_url
@@ -472,6 +475,90 @@
     handler.openIframe();
   }
 
+  /* ---------------- gate sales: one ticket, a quantity, pay ----------------
+     Shown instead of the normal page while gate check-ins are on. No name, email
+     or code: the QR appears on this phone after payment and is scanned at the gate. */
+  function renderGate(tt) {
+    const $ = CN.$, $$ = CN.$$;
+    let qty = 1;
+    const poster = ev.image_url
+      ? `<img class="gs-poster" src="${CN.esc(ev.image_url)}" alt="">`
+      : `<div class="gs-poster placeholder">${CN.esc(CN.initials(ev.name))}</div>`;
+    host.innerHTML = `
+      <div class="gs-wrap">
+        <div class="panel gs-card">
+          <div class="gs-head">
+            ${poster}
+            <div style="min-width:0">
+              <div class="gs-kicker">${CN.esc(ev.name)}</div>
+              <div class="small muted">${CN.esc(CN.prettyDate(ev.event_date))}${ev.venue ? " · " + CN.esc(ev.venue) : ""}</div>
+            </div>
+          </div>
+          <h1 class="gs-title">Purchase a gate ticket</h1>
+          <div class="gs-ticket">
+            <div><div class="gs-name">${CN.esc(tt.name)}</div><div class="small muted">Entry today</div></div>
+            <div class="gs-price">${CN.esc(CN.amount(tt.price))}</div>
+          </div>
+          <div class="gs-qty-row">
+            <span class="muted">How many?</span>
+            <div class="gs-qty">
+              <button type="button" data-q="-1" aria-label="One less">−</button>
+              <b id="gsQty">1</b>
+              <button type="button" data-q="1" aria-label="One more">+</button>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-block gs-pay" id="gsPay"></button>
+          <p class="small muted center" style="margin:12px 0 0">Pay with M-Pesa or card. Your QR ticket appears on this phone straight after — show it at the gate.</p>
+        </div>
+      </div>`;
+
+    const paint = () => {
+      $("#gsQty").textContent = qty;
+      $("#gsPay").textContent = `Pay ${CN.amount(tt.price * qty)}`;
+      $$(".gs-qty [data-q]")[0].disabled = qty <= 1;
+      $$(".gs-qty [data-q]")[1].disabled = qty >= 10;
+    };
+    $$(".gs-qty [data-q]").forEach((b) => (b.onclick = () => { qty = Math.max(1, Math.min(10, qty + Number(b.dataset.q))); paint(); }));
+    paint();
+
+    $("#gsPay").onclick = async () => {
+      const btn = $("#gsPay");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Opening payment…';
+      let order;
+      try {
+        order = await CN.rpc("create_gate_order", { p_event_id: ev.id, p_quantity: qty });
+      } catch (e) {
+        btn.disabled = false; paint();
+        if (/GATE_SALES_CLOSED/.test(e.message)) { CN.toast("Gate sales have closed.", "err"); return setTimeout(() => location.reload(), 1200); }
+        return CN.toast(/SOLD_OUT/.test(e.message) ? "Sorry — gate tickets are sold out." : e.message, "err");
+      }
+      const total = Number(order.total);
+      const provider = (cfg.payment_provider || "paystack").toLowerCase();
+      const pk = provider === "flutterwave" ? cfg.flutterwave_public_key : cfg.paystack_public_key;
+      if (!pk) { btn.disabled = false; paint(); return CN.toast("Payments aren't set up yet.", "err"); }
+      const reopen = () => { btn.disabled = false; paint(); };
+
+      if (provider === "flutterwave") {
+        window.FlutterwaveCheckout({
+          public_key: pk, tx_ref: order.reference, amount: total, currency: CN.currency || "KES",
+          payment_options: "card,mpesa", customer: { email: order.email, name: "Gate sale" },
+          customizations: { title: "Coast Nation", description: ev.name + " — gate ticket", logo: ev.image_url || "" },
+          callback: (resp) => finish(order.reference, "flutterwave", String(resp.transaction_id || resp.tx_ref || "")),
+          onclose: reopen
+        });
+        return;
+      }
+      window.PaystackPop.setup({
+        key: pk, email: order.email, amount: Math.round(total * 100),
+        currency: CN.currency || "KES", ref: order.reference,
+        metadata: { custom_fields: [{ display_name: "Event", variable_name: "event", value: ev.name + " (gate)" }] },
+        callback: (resp) => finish(order.reference, "paystack", resp.reference),
+        onClose: reopen
+      }).openIframe();
+    };
+  }
+
   async function finish(reference, provider, providerRef) {
     try {
       await CN.rpc("confirm_order_payment", {
@@ -485,6 +572,11 @@
     // paid=1 tells the ticket page to wait for the payment webhook rather than
     // telling the buyer their order is unpaid. The ticket is still only created
     // server-side, once the provider confirms.
+    // remember it on this phone: gate buyers get no email, so "My tickets" must find it
+    try {
+      const mine = JSON.parse(localStorage.getItem("cn_my_orders") || "[]").filter((r) => r !== reference);
+      localStorage.setItem("cn_my_orders", JSON.stringify([reference, ...mine].slice(0, 10)));
+    } catch (e) { /* private mode: the URL still holds the reference */ }
     window.location.href = "ticket.html?ref=" + encodeURIComponent(reference) + "&paid=1";
   }
 })();

@@ -531,7 +531,7 @@
     return `
       <div class="tt-row${t.is_active ? "" : " off"}">
         <div style="flex:1;min-width:170px">
-          <div style="font-weight:600">${esc(t.name)} ${state}${t.tagline ? ` <span class="tt-tagline">${esc(t.tagline)}</span>` : ""}</div>
+          <div style="font-weight:600">${esc(t.name)} ${state}${t.gate_only ? ` <span class="badge info">Gate</span>` : ""}${t.tagline ? ` <span class="tt-tagline">${esc(t.tagline)}</span>` : ""}</div>
           <div class="small muted">${esc(CN.money(t.price))} · ${sold} sold${t.quantity_total > 0 ? ` of ${t.quantity_total} (${left} left)` : " · unlimited"}</div>
           ${t.quantity_total > 0 ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ""}
         </div>
@@ -1496,6 +1496,7 @@
             <div class="field"><label>Stop selling at (optional)</label>
               <input id="t_end" type="datetime-local" value="${t.sales_end ? new Date(t.sales_end).toISOString().slice(0, 16) : ""}"></div>
             <label class="checkbox"><input type="checkbox" id="t_active" ${t.is_active === false ? "" : "checked"}> Available to buy (shows on the public page)</label>
+            <label class="checkbox" style="margin-top:8px"><input type="checkbox" id="t_gate" ${t.gate_only ? "checked" : ""}> Gate ticket — only sold on the event page while gate check-ins are on (no details or email code)</label>
             ${t.id ? `<p class="small muted" style="margin-top:14px">${t.quantity_sold || 0} already sold.</p>` : ""}
           </div>
           <div class="modal-foot">
@@ -1524,6 +1525,7 @@
             quantity_total: Number($("#t_qty").value || 0),
             sales_end: $("#t_end").value ? new Date($("#t_end").value).toISOString() : "",
             is_active: $("#t_active").checked,
+            gate_only: $("#t_gate").checked,
             sort_order: t.sort_order || 0
           }
         });

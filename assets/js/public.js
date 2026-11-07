@@ -4,7 +4,8 @@
 (async function () {
   CN.renderTopbar(CN.$("#topbar"));
   CN.renderFooter(CN.$("#footer"));
-  await CN.settings();
+  const cfg = await CN.settings();
+  const gateOn = String(cfg.gate_checkin_open) === "true";
 
   const grid = CN.$("#grid");
   let events = [];
@@ -84,7 +85,7 @@
 
   function card(ev) {
     const p = CN.dateParts(ev.event_date);
-    const types = (ev.ticket_types || []).filter((t) => t.is_active);
+    const types = (ev.ticket_types || []).filter((t) => t.is_active && !t.gate_only);
     const allClosed = types.length > 0 && types.every(CN.salesClosed);
     const past = CN.isPast(ev.event_date);
 
@@ -93,7 +94,11 @@
       .filter((t) => !CN.salesClosed(t))
       .sort((a, b) => (a.sort_order - b.sort_order) || Number(a.price) - Number(b.price))[0];
 
-    const priceBlock = past
+    // gate check-ins on: the card sells the gate ticket
+    const gateTT = gateOn && !past ? (ev.ticket_types || []).find((t) => t.gate_only && t.is_active) : null;
+    const priceBlock = gateTT
+      ? `<div class="price"><small>At the gate now</small>${CN.esc(gateTT.name)} &middot; ${CN.esc(CN.money(gateTT.price))}</div>`
+      : past
       ? `<div class="price"><small>Tickets</small>Closed</div>`
       : onSale
         ? `<div class="price"><small>Current ticket${onSale.tagline ? ` <span class="tt-tagline">${CN.esc(onSale.tagline)}</span>` : ""}</small>${CN.esc(onSale.name)} &middot; ${CN.esc(CN.money(onSale.price))}</div>`
@@ -107,7 +112,7 @@
 
     let tag = "";
     if (past) tag = `<div class="tag" style="background:rgba(255,255,255,.2)">Past</div>`;
-    else if (allClosed) tag = `<div class="tag soldout">Sold out</div>`;
+    else if (allClosed && !gateTT) tag = `<div class="tag soldout">Sold out</div>`;
     else if (ev.featured) tag = `<div class="tag">Featured</div>`;
 
     return `
@@ -129,7 +134,7 @@
           </div>
           <div class="event-foot">
             ${priceBlock}
-            <span class="btn btn-primary btn-sm">${past || allClosed ? "View" : "Get tickets"}</span>
+            <span class="btn btn-primary btn-sm">${gateTT ? "Buy gate ticket" : past || allClosed ? "View" : "Get tickets"}</span>
           </div>
         </div>
       </a>`;
